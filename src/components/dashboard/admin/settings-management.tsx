@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
@@ -1426,311 +1426,341 @@ function ProfileSettings() {
   )
 }
 
-// Social Login Settings Component
+// Social Login Settings Component - Connected to Registration Page
 function SocialLoginSettings() {
-  const socialProviders = [
-    { 
-      id: 'google', 
-      name: 'Google', 
-      icon: Chrome, 
-      color: 'from-red-500 to-yellow-500',
-      bgColor: 'bg-red-50',
-      borderColor: 'border-red-200',
-      connected: true,
-      users: 2340
+  const [providers, setProviders] = useState<Array<{
+    id: string
+    name: string
+    displayName: string
+    isEnabled: boolean
+    clientId: string | null
+    buttonColor: string | null
+    buttonTextColor: string | null
+  }>>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [savingId, setSavingId] = useState<string | null>(null)
+  const [expandedProvider, setExpandedProvider] = useState<string | null>(null)
+  const [formData, setFormData] = useState<Record<string, { clientId: string; clientSecret: string; buttonColor: string }>>({})
+
+  // Provider configurations matching registration page
+  const providerConfigs = {
+    google: {
+      icon: Chrome,
+      color: 'bg-white border-2 border-gray-200',
+      iconColor: 'text-gray-700',
+      gradient: 'from-red-500 to-yellow-500',
+      description: 'Sign in with Google account',
+      redirectUrl: '/api/auth/callback/google'
     },
-    { 
-      id: 'facebook', 
-      name: 'Facebook', 
-      icon: Facebook, 
-      color: 'from-blue-600 to-blue-700',
-      bgColor: 'bg-blue-50',
-      borderColor: 'border-blue-200',
-      connected: true,
-      users: 1856
+    facebook: {
+      icon: Facebook,
+      color: 'bg-[#1877F2]',
+      iconColor: 'text-white',
+      gradient: 'from-blue-600 to-blue-700',
+      description: 'Sign in with Facebook account',
+      redirectUrl: '/api/auth/callback/facebook'
     },
-    { 
-      id: 'twitter', 
-      name: 'Twitter/X', 
-      icon: Twitter, 
-      color: 'from-sky-500 to-blue-600',
-      bgColor: 'bg-sky-50',
-      borderColor: 'border-sky-200',
-      connected: false,
-      users: 0
-    },
-    { 
-      id: 'github', 
-      name: 'GitHub', 
-      icon: Github, 
-      color: 'from-gray-700 to-gray-900',
-      bgColor: 'bg-gray-50',
-      borderColor: 'border-gray-200',
-      connected: false,
-      users: 0
-    },
-    { 
-      id: 'linkedin', 
-      name: 'LinkedIn', 
-      icon: Linkedin, 
-      color: 'from-blue-600 to-blue-700',
-      bgColor: 'bg-blue-50',
-      borderColor: 'border-blue-200',
-      connected: false,
-      users: 0
-    },
-  ]
+    telegram: {
+      icon: Smartphone,
+      color: 'bg-[#0088cc]',
+      iconColor: 'text-white',
+      gradient: 'from-cyan-500 to-blue-500',
+      description: 'Sign in with Telegram account',
+      redirectUrl: '/api/auth/callback/telegram'
+    }
+  }
+
+  // Fetch providers from API
+  useEffect(() => {
+    const fetchProviders = async () => {
+      try {
+        const response = await fetch('/api/settings/oauth')
+        if (response.ok) {
+          const data = await response.json()
+          setProviders(data.providers || [])
+          
+          // Initialize form data
+          const initialFormData: Record<string, { clientId: string; clientSecret: string; buttonColor: string }> = {}
+          data.providers?.forEach((p: { id: string; clientId: string | null; buttonColor: string | null }) => {
+            initialFormData[p.id] = {
+              clientId: p.clientId || '',
+              clientSecret: '',
+              buttonColor: p.buttonColor || ''
+            }
+          })
+          setFormData(initialFormData)
+        }
+      } catch (error) {
+        console.error('Failed to fetch providers:', error)
+      } finally {
+        setIsLoading(false)
+      }
+    }
+    fetchProviders()
+  }, [])
+
+  // Toggle provider enabled status
+  const toggleProvider = async (providerId: string, currentStatus: boolean) => {
+    setSavingId(providerId)
+    try {
+      const response = await fetch('/api/settings/oauth', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: providerId,
+          isEnabled: !currentStatus
+        })
+      })
+      
+      if (response.ok) {
+        setProviders(prev => prev.map(p => 
+          p.id === providerId ? { ...p, isEnabled: !currentStatus } : p
+        ))
+      }
+    } catch (error) {
+      console.error('Failed to toggle provider:', error)
+    } finally {
+      setSavingId(null)
+    }
+  }
+
+  // Save provider configuration
+  const saveProviderConfig = async (providerId: string) => {
+    setSavingId(providerId)
+    const data = formData[providerId]
+    if (!data) return
+    
+    try {
+      const response = await fetch('/api/settings/oauth', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: providerId,
+          clientId: data.clientId,
+          clientSecret: data.clientSecret || undefined,
+          buttonColor: data.buttonColor || undefined
+        })
+      })
+      
+      if (response.ok) {
+        setExpandedProvider(null)
+      }
+    } catch (error) {
+      console.error('Failed to save provider config:', error)
+    } finally {
+      setSavingId(null)
+    }
+  }
+
+  const enabledCount = providers.filter(p => p.isEnabled).length
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <RefreshCw className="h-8 w-8 animate-spin text-emerald-500" />
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-6">
-      {/* Overview */}
+      {/* Header Info */}
       <Card className="border-0 shadow-lg shadow-gray-200/50">
         <CardHeader className="border-b border-gray-100">
           <CardTitle className="flex items-center gap-2 text-base">
             <Key className="h-5 w-5 text-emerald-500" />
             Social Login Providers
           </CardTitle>
-          <CardDescription>Configure OAuth authentication providers for user login</CardDescription>
+          <CardDescription>
+            Configure OAuth providers for user registration and login. Changes here affect the login buttons on the registration page.
+          </CardDescription>
         </CardHeader>
         <CardContent className="pt-6">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <div className="p-4 rounded-xl bg-gradient-to-br from-emerald-50 to-teal-50 border border-emerald-200 text-center">
-              <p className="text-3xl font-bold text-gray-900">2</p>
+              <p className="text-3xl font-bold text-gray-900">{enabledCount}</p>
               <p className="text-xs text-gray-500">Active Providers</p>
             </div>
             <div className="p-4 rounded-xl bg-gradient-to-br from-violet-50 to-purple-50 border border-violet-200 text-center">
-              <p className="text-3xl font-bold text-gray-900">4,196</p>
-              <p className="text-xs text-gray-500">Social Users</p>
+              <p className="text-3xl font-bold text-gray-900">{providers.length}</p>
+              <p className="text-xs text-gray-500">Total Providers</p>
             </div>
             <div className="p-4 rounded-xl bg-gradient-to-br from-amber-50 to-orange-50 border border-amber-200 text-center">
-              <p className="text-3xl font-bold text-gray-900">89%</p>
-              <p className="text-xs text-gray-500">Success Rate</p>
+              <p className="text-3xl font-bold text-gray-900">3</p>
+              <p className="text-xs text-gray-500">Supported</p>
             </div>
             <div className="p-4 rounded-xl bg-gradient-to-br from-cyan-50 to-blue-50 border border-cyan-200 text-center">
-              <p className="text-3xl font-bold text-gray-900">1.2s</p>
-              <p className="text-xs text-gray-500">Avg. Login Time</p>
+              <div className="flex items-center justify-center gap-2">
+                <div className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+                <span className="text-sm font-medium text-gray-700">Live</span>
+              </div>
+              <p className="text-xs text-gray-500">Synced with Registration</p>
             </div>
           </div>
         </CardContent>
       </Card>
 
-      {/* Provider Cards */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        {socialProviders.map((provider) => {
-          const IconComponent = provider.icon
+      {/* Provider Cards - Only Google, Facebook, Telegram */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        {['google', 'facebook', 'telegram'].map((providerName) => {
+          const provider = providers.find(p => p.name === providerName)
+          const config = providerConfigs[providerName as keyof typeof providerConfigs]
+          const IconComponent = config.icon
+          const isEnabled = provider?.isEnabled ?? false
+          const isExpanded = expandedProvider === providerName
+          const isSaving = savingId === provider?.id
+
           return (
-            <Card key={provider.id} className={cn(
-              "border-0 shadow-lg shadow-gray-200/50 overflow-hidden transition-all duration-300",
-              provider.connected && "ring-2 ring-emerald-500/20"
-            )}>
-              <div className={cn("h-1 bg-gradient-to-r", provider.color)} />
+            <Card 
+              key={providerName} 
+              className={cn(
+                "border-0 shadow-lg shadow-gray-200/50 overflow-hidden transition-all duration-300",
+                isEnabled && "ring-2 ring-emerald-500/20"
+              )}
+            >
+              <div className={cn("h-1 bg-gradient-to-r", config.gradient)} />
               <CardContent className="pt-6">
                 <div className="flex items-start justify-between mb-4">
                   <div className="flex items-center gap-3">
-                    <div className={cn("flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br", provider.color)}>
-                      <IconComponent className="h-6 w-6 text-white" />
+                    <div className={cn(
+                      "flex h-12 w-12 items-center justify-center rounded-xl",
+                      config.color
+                    )}>
+                      <IconComponent className={cn("h-6 w-6", config.iconColor)} />
                     </div>
                     <div>
-                      <h3 className="font-semibold text-gray-900">{provider.name}</h3>
-                      <p className="text-xs text-gray-500">OAuth 2.0 Provider</p>
+                      <h3 className="font-semibold text-gray-900 capitalize">{providerName}</h3>
+                      <p className="text-xs text-gray-500">{config.description}</p>
                     </div>
                   </div>
+                </div>
+
+                {/* Enable/Disable Toggle */}
+                <div className="flex items-center justify-between p-3 rounded-lg bg-gray-50 mb-4">
                   <div className="flex items-center gap-2">
-                    {provider.connected ? (
+                    {isEnabled ? (
                       <>
-                        <Badge className="bg-emerald-500 text-white border-0">Connected</Badge>
+                        <Badge className="bg-emerald-500 text-white border-0">Active</Badge>
                         <div className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
                       </>
                     ) : (
-                      <Badge variant="secondary" className="bg-gray-100 text-gray-600">Not Connected</Badge>
+                      <Badge variant="secondary" className="bg-gray-200 text-gray-600">Disabled</Badge>
                     )}
                   </div>
+                  <Switch
+                    checked={isEnabled}
+                    onCheckedChange={() => provider && toggleProvider(provider.id, isEnabled)}
+                    disabled={isSaving}
+                  />
                 </div>
 
-                {provider.connected && (
-                  <div className="flex items-center gap-4 mb-4 p-3 rounded-lg bg-gray-50">
-                    <div className="flex-1">
-                      <p className="text-sm text-gray-500">Connected Users</p>
-                      <p className="text-xl font-bold text-gray-900">{provider.users.toLocaleString()}</p>
+                {/* Expand/Collapse for Configuration */}
+                <Button
+                  variant="outline"
+                  className="w-full border-gray-200"
+                  onClick={() => setExpandedProvider(isExpanded ? null : providerName)}
+                >
+                  <Settings className="h-4 w-4 mr-2" />
+                  {isExpanded ? 'Hide Configuration' : 'Configure'}
+                </Button>
+
+                {/* Configuration Panel */}
+                {isExpanded && provider && (
+                  <div className="mt-4 space-y-4 p-4 rounded-lg bg-gray-50 border border-gray-100">
+                    <div className="space-y-2">
+                      <Label className="text-xs">Client ID</Label>
+                      <Input
+                        value={formData[providerName]?.clientId || ''}
+                        onChange={(e) => setFormData(prev => ({
+                          ...prev,
+                          [providerName]: { ...prev[providerName], clientId: e.target.value }
+                        }))}
+                        placeholder={`${providerName} client ID`}
+                        className="h-9 text-sm"
+                      />
                     </div>
-                    <div className="h-8 w-px bg-gray-200" />
-                    <div className="flex-1">
-                      <p className="text-sm text-gray-500">Status</p>
-                      <p className="text-sm font-medium text-emerald-600">Active</p>
+                    <div className="space-y-2">
+                      <Label className="text-xs">Client Secret</Label>
+                      <Input
+                        type="password"
+                        value={formData[providerName]?.clientSecret || ''}
+                        onChange={(e) => setFormData(prev => ({
+                          ...prev,
+                          [providerName]: { ...prev[providerName], clientSecret: e.target.value }
+                        }))}
+                        placeholder="Enter new secret to update"
+                        className="h-9 text-sm"
+                      />
                     </div>
+                    <div className="space-y-2">
+                      <Label className="text-xs">Button Color (optional)</Label>
+                      <div className="flex gap-2">
+                        <Input
+                          value={formData[providerName]?.buttonColor || ''}
+                          onChange={(e) => setFormData(prev => ({
+                            ...prev,
+                            [providerName]: { ...prev[providerName], buttonColor: e.target.value }
+                          }))}
+                          placeholder="#1877F2"
+                          className="h-9 text-sm flex-1"
+                        />
+                        <input
+                          type="color"
+                          value={formData[providerName]?.buttonColor || '#1877F2'}
+                          onChange={(e) => setFormData(prev => ({
+                            ...prev,
+                            [providerName]: { ...prev[providerName], buttonColor: e.target.value }
+                          }))}
+                          className="w-9 h-9 rounded border cursor-pointer"
+                        />
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-xs">Redirect URL</Label>
+                      <div className="p-2 rounded bg-white border border-gray-200 font-mono text-xs text-gray-600 break-all">
+                        {config.redirectUrl}
+                      </div>
+                      <p className="text-[10px] text-gray-400">Add this URL to your {providerName} app settings</p>
+                    </div>
+                    <Button
+                      className="w-full bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white"
+                      onClick={() => saveProviderConfig(provider.id)}
+                      disabled={isSaving}
+                    >
+                      {isSaving ? (
+                        <>
+                          <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                          Saving...
+                        </>
+                      ) : (
+                        <>
+                          <Save className="h-4 w-4 mr-2" />
+                          Save Configuration
+                        </>
+                      )}
+                    </Button>
                   </div>
                 )}
-
-                <div className="flex items-center gap-2">
-                  {provider.connected ? (
-                    <>
-                      <Button variant="outline" className="flex-1 border-gray-200">
-                        <Settings className="h-4 w-4 mr-2" />
-                        Configure
-                      </Button>
-                      <Button variant="outline" className="border-red-200 text-red-600 hover:bg-red-50">
-                        Disconnect
-                      </Button>
-                    </>
-                  ) : (
-                    <Button className="w-full bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white">
-                      <Link2 className="h-4 w-4 mr-2" />
-                      Connect {provider.name}
-                    </Button>
-                  )}
-                </div>
               </CardContent>
             </Card>
           )
         })}
       </div>
 
-      {/* Google Configuration */}
-      <Card className="border-0 shadow-lg shadow-gray-200/50">
-        <CardHeader className="border-b border-gray-100">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-red-500 to-yellow-500">
-                <Chrome className="h-4 w-4 text-white" />
-              </div>
-              <div>
-                <CardTitle className="text-base">Google OAuth Configuration</CardTitle>
-                <CardDescription>Configure Google Sign-In credentials</CardDescription>
-              </div>
+      {/* Info Card */}
+      <Card className="border-0 shadow-lg shadow-gray-200/50 bg-gradient-to-r from-blue-50 to-cyan-50">
+        <CardContent className="pt-6">
+          <div className="flex items-start gap-4">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-100">
+              <Activity className="h-5 w-5 text-blue-600" />
             </div>
-            <Badge className="bg-emerald-500 text-white border-0">Active</Badge>
-          </div>
-        </CardHeader>
-        <CardContent className="pt-6 space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="googleClientId">Client ID</Label>
-              <Input 
-                id="googleClientId" 
-                defaultValue="123456789-abcdefg.apps.googleusercontent.com" 
-                className="border-gray-200 focus:border-emerald-500 font-mono text-sm" 
-              />
-              <p className="text-xs text-gray-400">From Google Cloud Console</p>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="googleClientSecret">Client Secret</Label>
-              <Input 
-                id="googleClientSecret" 
-                type="password" 
-                defaultValue="GOCSPX-xxxxxxxxxxxxx" 
-                className="border-gray-200 focus:border-emerald-500 font-mono text-sm" 
-              />
-              <p className="text-xs text-gray-400">Keep this secret secure</p>
-            </div>
-          </div>
-          <div className="space-y-2">
-            <Label>Authorized Redirect URIs</Label>
-            <div className="p-3 rounded-lg bg-gray-50 border border-gray-100 font-mono text-sm text-gray-600">
-              https://soreti.com/api/auth/callback/google
-            </div>
-            <p className="text-xs text-gray-400">Add this URL to your Google Cloud Console</p>
-          </div>
-          <div className="flex items-center gap-3">
-            <Button className="bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white">
-              Save Configuration
-            </Button>
-            <Button variant="outline" className="border-gray-200">
-              Test Connection
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Facebook Configuration */}
-      <Card className="border-0 shadow-lg shadow-gray-200/50">
-        <CardHeader className="border-b border-gray-100">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-blue-600 to-blue-700">
-                <Facebook className="h-4 w-4 text-white" />
-              </div>
-              <div>
-                <CardTitle className="text-base">Facebook OAuth Configuration</CardTitle>
-                <CardDescription>Configure Facebook Login credentials</CardDescription>
-              </div>
-            </div>
-            <Badge className="bg-emerald-500 text-white border-0">Active</Badge>
-          </div>
-        </CardHeader>
-        <CardContent className="pt-6 space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="facebookAppId">App ID</Label>
-              <Input 
-                id="facebookAppId" 
-                defaultValue="123456789012345" 
-                className="border-gray-200 focus:border-emerald-500 font-mono text-sm" 
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="facebookAppSecret">App Secret</Label>
-              <Input 
-                id="facebookAppSecret" 
-                type="password" 
-                defaultValue="abcdef1234567890abcdef1234567890" 
-                className="border-gray-200 focus:border-emerald-500 font-mono text-sm" 
-              />
-            </div>
-          </div>
-          <div className="space-y-2">
-            <Label>Valid OAuth Redirect URIs</Label>
-            <div className="p-3 rounded-lg bg-gray-50 border border-gray-100 font-mono text-sm text-gray-600">
-              https://soreti.com/api/auth/callback/facebook
-            </div>
-          </div>
-          <div className="flex items-center gap-3">
-            <Button className="bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white">
-              Save Configuration
-            </Button>
-            <Button variant="outline" className="border-gray-200">
-              Test Connection
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Security Settings */}
-      <Card className="border-0 shadow-lg shadow-gray-200/50">
-        <CardHeader className="border-b border-gray-100">
-          <CardTitle className="flex items-center gap-2 text-base">
-            <Shield className="h-5 w-5 text-amber-500" />
-            Security Settings
-          </CardTitle>
-          <CardDescription>Configure security options for social logins</CardDescription>
-        </CardHeader>
-        <CardContent className="pt-6 space-y-4">
-          <div className="flex items-center justify-between p-4 rounded-xl bg-gray-50 border border-gray-100">
             <div>
-              <p className="text-sm font-medium text-gray-900">Require Email Verification</p>
-              <p className="text-xs text-gray-500">Users must verify email before account activation</p>
+              <h3 className="font-semibold text-gray-900 mb-1">Registration Page Integration</h3>
+              <p className="text-sm text-gray-600">
+                These settings control which social login buttons appear on the user registration and login pages. 
+                Disable a provider here to hide its button from the registration page.
+              </p>
             </div>
-            <Switch defaultChecked />
-          </div>
-          <div className="flex items-center justify-between p-4 rounded-xl bg-gray-50 border border-gray-100">
-            <div>
-              <p className="text-sm font-medium text-gray-900">Allow Account Linking</p>
-              <p className="text-xs text-gray-500">Users can link multiple social providers</p>
-            </div>
-            <Switch defaultChecked />
-          </div>
-          <div className="flex items-center justify-between p-4 rounded-xl bg-gray-50 border border-gray-100">
-            <div>
-              <p className="text-sm font-medium text-gray-900">Enable Rate Limiting</p>
-              <p className="text-xs text-gray-500">Limit login attempts to prevent abuse</p>
-            </div>
-            <Switch defaultChecked />
-          </div>
-          <div className="flex items-center justify-between p-4 rounded-xl bg-gray-50 border border-gray-100">
-            <div>
-              <p className="text-sm font-medium text-gray-900">Log All Authentication Events</p>
-              <p className="text-xs text-gray-500">Keep audit logs of all login activities</p>
-            </div>
-            <Switch defaultChecked />
           </div>
         </CardContent>
       </Card>
