@@ -1,0 +1,602 @@
+// Soreti Loan Origination Platform - Database Schema
+// PostgreSQL-ready, currently using SQLite for development
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================
+// USER & AUTHENTICATION
+// ============================================
+
+model User {
+  id            String    @id @default(cuid())
+  phone         String?   @unique
+  email         String?   @unique  // Optional for social auth
+  password      String?   // Optional for social auth, hashed with bcrypt
+  role          Role      @default(CUSTOMER)
+  fullName      String
+  idNumber      String?   // encrypted - Kebele ID/Passport number
+  address       String?
+  dateOfBirth   String?
+  bankId        String?   // For Banker role: links to their assigned bank
+
+  // Social Authentication
+  image         String?   // Profile image from social providers
+  authProvider  String?   // "credentials", "google", "facebook", "telegram"
+  providerId    String?   // Provider's user ID
+
+  // Status
+  isActive      Boolean   @default(true)
+  emailVerified DateTime?
+  phoneVerified DateTime?
+
+  // Marketing Attribution
+  utmSource     String?
+  utmMedium     String?
+  utmCampaign   String?
+  utmTerm       String?
+  utmContent    String?
+  referrerUrl   String?
+  firstVisitAt  DateTime?
+
+  // Timestamps
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  lastLoginAt   DateTime?
+
+  // Relations
+  bank          Bank?     @relation(fields: [bankId], references: [id])
+  bankAccount   BankAccount?
+  loans         LoanApplication[]
+  auditLogs     AuditLog[]
+  documents     Document[]
+  notifications Notification[]
+  accounts      Account[] // For OAuth accounts
+
+  @@index([role])
+  @@index([bankId])
+  @@index([createdAt])
+  @@index([authProvider, providerId])
+}
+
+// OAuth Account model for social login
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  provider          String  // "google", "facebook", "telegram"
+  providerAccountId String  // ID from the provider
+  accessToken       String?
+  refreshToken      String?
+  expiresAt         DateTime?
+  tokenType         String?
+  scope             String?
+  idToken           String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@index([userId])
+}
+
+// ============================================
+// BANKS & PARTNERS
+// ============================================
+
+model Bank {
+  id              String    @id @default(cuid())
+  name            String    // "Hijira Bank"
+  code            String    @unique // "HIJIRA"
+  logoUrl         String?
+  description     String?   // Bank description for public page
+  websiteUrl      String?
+  contactEmail    String?
+  contactPhone    String?
+  
+  // Loan Terms
+  minLoanAmount   Float     @default(1000)
+  maxLoanAmount   Float     @default(1000000)
+  interestRate    Float     @default(12.5) // Annual percentage
+  maxTermMonths   Int       @default(36)
+  
+  // Status
+  isActive        Boolean   @default(true)
+  isPartner       Boolean   @default(true)
+  partnershipDate DateTime?
+  
+  // Integration
+  apiUrl          String?   // for future API integration
+  apiKey          String?   // encrypted
+  
+  // Timestamps
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  
+  // Relations
+  users           User[]    // Bankers assigned to this bank
+  loans           LoanApplication[]
+  
+  @@index([isActive])
+}
+
+// ============================================
+// PRODUCTS (Soreti Products for Financing)
+// ============================================
+
+model Product {
+  id             String    @id @default(cuid())
+  name           String
+  slug           String    @unique
+  description    String?
+  shortDesc      String?   // Brief description for cards
+  price          Float     // Store as float for SQLite, migrate to Decimal for PostgreSQL
+  category       String?   // e.g., "Electronics", "Furniture", "Vehicles"
+  imageUrl       String?
+  images         String?   // JSON array of additional image URLs
+  inventory      Int       @default(0)
+  sku            String?   @unique
+  
+  // Financing Options
+  isFinanceable  Boolean   @default(true)
+  minDownPayment Float?    @default(10) // Percentage
+  maxLoanTerm    Int?      // Override bank default
+  
+  // Status
+  isActive       Boolean   @default(true)
+  isFeatured     Boolean   @default(false)
+  
+  // Timestamps
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  
+  // Relations
+  loans          LoanApplication[]
+  
+  @@index([category])
+  @@index([isActive])
+  @@index([isFeatured])
+}
+
+// ============================================
+// LOAN APPLICATIONS
+// ============================================
+
+model LoanApplication {
+  id              String      @id @default(cuid())
+  applicationId   String      @unique // Human-readable ID: "SOL-2024-000001"
+  
+  // Foreign Keys
+  userId          String
+  bankId          String
+  productId       String
+  
+  // Loan Details
+  amount          Float       // Loan amount requested
+  downPayment     Float       @default(0)
+  totalAmount     Float       // Product price
+  interestRate    Float       // At time of application
+  termMonths      Int         @default(12)
+  monthlyPayment  Float?      // Calculated
+  
+  // Status & Review
+  status          LoanStatus  @default(DRAFT)
+  reviewedBy      String?     // User ID of Banker/Admin who reviewed
+  reviewedAt      DateTime?
+  reviewedByName  String?     // Cached reviewer name
+  internalNotes   String?     // Banker-only notes (encrypted)
+  rejectionReason String?
+  
+  // Customer Bank Account for Disbursement
+  accountNumber   String?     // Encrypted
+  accountName     String?
+  bankName        String?
+  
+  // Timestamps
+  submittedAt     DateTime?
+  approvedAt      DateTime?
+  disbursedAt     DateTime?
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+  
+  // Relations
+  user            User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  bank            Bank        @relation(fields: [bankId], references: [id])
+  product         Product     @relation(fields: [productId], references: [id])
+  documents       Document[]
+  timeline        LoanTimeline[]
+  
+  @@index([status])
+  @@index([bankId])
+  @@index([userId])
+  @@index([createdAt])
+}
+
+// ============================================
+// LOAN TIMELINE (Status History)
+// ============================================
+
+model LoanTimeline {
+  id              String      @id @default(cuid())
+  loanId          String
+  status          LoanStatus
+  action          String      // "STATUS_CHANGE", "DOCUMENT_UPLOADED", "NOTE_ADDED"
+  description     String
+  performedBy     String?     // User ID
+  performedByName String?     // Cached name
+  metadata        String?     // JSON for additional data
+  createdAt       DateTime    @default(now())
+  
+  loan            LoanApplication @relation(fields: [loanId], references: [id], onDelete: Cascade)
+  
+  @@index([loanId])
+  @@index([createdAt])
+}
+
+// ============================================
+// DOCUMENTS
+// ============================================
+
+model Document {
+  id            String    @id @default(cuid())
+  loanId        String?
+  userId        String
+  
+  // Document Details
+  type          DocType
+  name          String    // Original filename
+  filePath      String    // Encrypted path
+  fileSize      Int       // Bytes
+  mimeType      String
+  
+  // Verification
+  isVerified    Boolean   @default(false)
+  verifiedBy    String?
+  verifiedAt    DateTime?
+  
+  // Timestamps
+  uploadedAt    DateTime  @default(now())
+  
+  // Relations
+  loan          LoanApplication? @relation(fields: [loanId], references: [id], onDelete: SetNull)
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@index([loanId])
+  @@index([userId])
+  @@index([type])
+}
+
+// ============================================
+// BANK ACCOUNTS (Customer Bank Details)
+// ============================================
+
+model BankAccount {
+  id            String    @id @default(cuid())
+  userId        String    @unique
+  
+  // Bank Details (Encrypted)
+  bankName      String
+  accountNumber String    // Encrypted
+  accountName   String
+  accountType   String?   // "SAVINGS", "CHECKING"
+  
+  // Verification
+  proofFilePath String?   // Path to bank statement/screenshot
+  isVerified    Boolean   @default(false)
+  verifiedBy    String?
+  verifiedAt    DateTime?
+  
+  // Timestamps
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  
+  // Relations
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// ============================================
+// AUDIT LOGS
+// ============================================
+
+model AuditLog {
+  id            String    @id @default(cuid())
+  userId        String?
+  
+  // Action Details
+  action        String    // "LOAN_APPROVED", "USER_CREATED", "DOCUMENT_UPLOADED"
+  entityType    String?   // "LoanApplication", "User", "Bank", "Document"
+  entityId      String?
+  description   String?
+  
+  // Data Changes
+  oldValue      String?   // JSON string of before state
+  newValue      String?   // JSON string of after state
+  
+  // Request Context
+  ipAddress     String?
+  userAgent     String?
+  route         String?
+  method        String?
+  
+  // Timestamp
+  timestamp     DateTime  @default(now())
+  
+  // Relations
+  user          User?     @relation(fields: [userId], references: [id], onDelete: SetNull)
+  
+  @@index([userId])
+  @@index([action])
+  @@index([entityType, entityId])
+  @@index([timestamp])
+}
+
+// ============================================
+// NOTIFICATIONS
+// ============================================
+
+model Notification {
+  id          String          @id @default(cuid())
+  userId      String
+  
+  // Content
+  title       String
+  message     String
+  type        NotificationType @default(INFO)
+  
+  // Related Entity
+  entityType  String?
+  entityId    String?
+  
+  // Status
+  isRead      Boolean         @default(false)
+  readAt      DateTime?
+  
+  // Timestamp
+  createdAt   DateTime        @default(now())
+  
+  // Relations
+  user        User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@index([userId])
+  @@index([isRead])
+  @@index([createdAt])
+}
+
+// ============================================
+// SYSTEM SETTINGS (for Admin)
+// ============================================
+
+model Setting {
+  id          String    @id @default(cuid())
+  key         String    @unique
+  value       String    // JSON string
+  description String?
+  updatedAt   DateTime  @updatedAt
+  updatedBy   String?
+}
+
+// OAuth Provider Settings (managed by Admin)
+model OAuthProvider {
+  id            String    @id @default(cuid())
+  name          String    @unique // "google", "facebook", "telegram"
+  displayName   String    // "Google", "Facebook", "Telegram"
+  clientId      String?   // Encrypted
+  clientSecret  String?   // Encrypted
+  isEnabled     Boolean   @default(false)
+  iconUrl       String?   // Custom icon URL
+  buttonColor   String?   // Custom button color
+  buttonTextColor String?
+
+  // Telegram-specific
+  botToken      String?   // For Telegram login widget
+
+  // Timestamps
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@index([isEnabled])
+}
+
+// ============================================
+// ENUMS
+// ============================================
+
+enum Role {
+  SUPER_ADMIN
+  ADMIN
+  CEO
+  GENERAL_MANAGER
+  FINANCE_MANAGER
+  MARKETING_MANAGER
+  SELLER
+  CUSTOMER
+  BANKER
+}
+
+enum LoanStatus {
+  DRAFT
+  SUBMITTED
+  UNDER_REVIEW
+  ADDITIONAL_INFO_REQUIRED
+  APPROVED
+  REJECTED
+  DISBURSED
+  REPAID
+  DEFAULTED
+  CANCELLED
+}
+
+enum DocType {
+  ID_CARD
+  PASSPORT
+  KEBELE_ID
+  BANK_STATEMENT
+  PROOF_OF_INCOME
+  EMPLOYMENT_LETTER
+  BUSINESS_LICENSE
+  UTILITY_BILL
+  OTHER
+}
+
+enum NotificationType {
+  INFO
+  SUCCESS
+  WARNING
+  ERROR
+}
+
+// ============================================
+// HOMEPAGE CONTENT (for Marketing Manager)
+// ============================================
+
+model HomepageBanner {
+  id          String    @id @default(cuid())
+  title       String
+  subtitle    String?
+  imageUrl    String?
+  linkUrl     String?
+  buttonText  String?
+  isActive    Boolean   @default(true)
+  order       Int       @default(0)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  
+  @@index([isActive])
+}
+
+model Testimonial {
+  id          String    @id @default(cuid())
+  name        String
+  role        String?   // Job title or "Customer"
+  company     String?
+  content     String
+  avatarUrl   String?
+  rating      Int       @default(5) // 1-5 stars
+  isActive    Boolean   @default(true)
+  order       Int       @default(0)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  
+  @@index([isActive])
+}
+
+model SiteStatistic {
+  id          String    @id @default(cuid())
+  label       String    // "Loans Approved", "Total Customers"
+  value       String    // "10,000+", "$5M+"
+  icon        String?   // Icon name
+  order       Int       @default(0)
+  isActive    Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
+
+// ============================================
+// HOMEPAGE SECTIONS (Admin Controlled)
+// ============================================
+
+model HomepageSection {
+  id              String    @id @default(cuid())
+  sectionKey      String    @unique // "hero", "mobile_apps", "how_it_works", "banks", "products", "testimonials", "stats", "contact", "footer"
+  
+  // Display Settings
+  isEnabled       Boolean   @default(true)
+  order           Int       @default(0)
+  
+  // Content (JSON for flexibility)
+  title           String?
+  subtitle        String?
+  description     String?
+  content         String?   // JSON for additional content fields
+  
+  // Styling
+  backgroundColor String?   // e.g., "#ffffff", "linear-gradient(...)"
+  textColor       String?   // e.g., "#333333"
+  accentColor     String?   // Primary accent color
+  customCss       String?   // Custom CSS overrides
+  
+  // Media
+  backgroundImage String?
+  backgroundImageUrl String?
+  
+  // CTA Settings
+  ctaText         String?
+  ctaLink         String?
+  ctaButtonColor  String?
+  secondaryCtaText  String?
+  secondaryCtaLink  String?
+  
+  // Metadata
+  lastModifiedBy  String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  
+  @@index([isEnabled])
+  @@index([order])
+}
+
+// ============================================
+// ABOUT PAGE CONTENT (for Marketing Manager)
+// ============================================
+
+model AboutContent {
+  id              String    @id @default(cuid())
+  
+  // Hero Section
+  heroTitle       String?
+  heroSubtitle    String?
+  heroImage       String?
+  
+  // Company Story
+  storyTitle      String?
+  storyContent    String?   // Main paragraph content
+  storyImage      String?
+  
+  // Founders
+  founder1Name    String?
+  founder1Title   String?
+  founder1Image   String?
+  founder1Bio     String?
+  
+  founder2Name    String?
+  founder2Title   String?
+  founder2Image   String?
+  founder2Bio     String?
+  
+  // Mission & Vision
+  missionTitle    String?
+  missionContent  String?
+  visionTitle     String?
+  visionContent   String?
+  
+  // Values
+  valuesTitle     String?
+  values          String?   // JSON array of {title, description, icon}
+  
+  // Business Areas
+  businessTitle   String?
+  businessAreas   String?   // JSON array of {title, description, icon}
+  
+  // Global Presence
+  globalTitle     String?
+  globalContent   String?
+  globalMarkets   String?   // JSON array of market names
+  
+  // Stats
+  statsTitle      String?
+  stats           String?   // JSON array of {value, label}
+  
+  // CTA Section
+  ctaTitle        String?
+  ctaContent      String?
+  ctaButtonText   String?
+  ctaButtonLink   String?
+  
+  // Metadata
+  isActive        Boolean   @default(true)
+  updatedAt       DateTime  @updatedAt
+}
