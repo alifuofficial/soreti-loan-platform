@@ -459,18 +459,13 @@ async function main() {
     },
   ];
 
-  // Delete existing loans for all customers first
-  const allCustomerIds = users.filter(u => u.role === Role.CUSTOMER).map(u => u.id);
+  // Delete ALL existing loans and timelines to ensure clean state
+  console.log('   Cleaning up existing loan data...');
   
-  await prisma.loanTimeline.deleteMany({
-    where: {
-      loan: { userId: { in: allCustomerIds } }
-    }
-  });
+  await prisma.loanTimeline.deleteMany({});
+  await prisma.loanApplication.deleteMany({});
   
-  await prisma.loanApplication.deleteMany({
-    where: { userId: { in: allCustomerIds } },
-  });
+  console.log('   ✅ Cleaned up existing data');
 
   let applicationCounter = 1;
 
@@ -636,6 +631,122 @@ async function main() {
   console.log(`✅ Created ${totalLoans} loan applications\n`);
 
   // ============================================
+  // 5. CREATE DEFAULT HOMEPAGE SECTIONS
+  // ============================================
+  console.log('🏠 Creating homepage sections...');
+
+  const homepageSectionsData = [
+    {
+      sectionKey: 'hero',
+      order: 1,
+      title: 'Finance Your Dreams',
+      subtitle: 'Ethiopia\'s Premier Loan Origination Platform',
+      description: 'Get the financing you need for products, vehicles, and more with competitive rates from our partner banks.',
+      backgroundColor: '#0f172a',
+      textColor: '#ffffff',
+      accentColor: '#22c55e',
+      ctaText: 'Get Started',
+      ctaLink: '/apply',
+      ctaButtonColor: '#22c55e',
+      secondaryCtaText: 'Learn More',
+      secondaryCtaLink: '/about',
+    },
+    {
+      sectionKey: 'partner-banks',
+      order: 2,
+      title: 'Our Partner Banks',
+      subtitle: 'Trusted Financial Institutions',
+      description: 'We work with Ethiopia\'s leading banks to bring you the best loan options.',
+      backgroundColor: '#ffffff',
+      textColor: '#1e293b',
+      accentColor: '#22c55e',
+    },
+    {
+      sectionKey: 'how-it-works',
+      order: 3,
+      title: 'How It Works',
+      subtitle: 'Simple 4-Step Process',
+      description: 'Getting a loan has never been easier. Follow our simple process to get approved.',
+      backgroundColor: '#f8fafc',
+      textColor: '#1e293b',
+      accentColor: '#22c55e',
+    },
+    {
+      sectionKey: 'featured-products',
+      order: 4,
+      title: 'Featured Products',
+      subtitle: 'Finance What You Need',
+      description: 'Browse our selection of products available for financing.',
+      backgroundColor: '#ffffff',
+      textColor: '#1e293b',
+      accentColor: '#22c55e',
+      ctaText: 'View All Products',
+      ctaLink: '/products',
+      ctaButtonColor: '#22c55e',
+    },
+    {
+      sectionKey: 'why-choose-us',
+      order: 5,
+      title: 'Why Choose Soreti?',
+      subtitle: 'Your Trusted Partner in Financing',
+      description: 'We make the loan process simple, transparent, and accessible.',
+      backgroundColor: '#0f172a',
+      textColor: '#ffffff',
+      accentColor: '#22c55e',
+    },
+    {
+      sectionKey: 'testimonials',
+      order: 6,
+      title: 'What Our Customers Say',
+      subtitle: 'Real Stories, Real Results',
+      description: 'Hear from customers who have successfully financed their dreams through Soreti.',
+      backgroundColor: '#f8fafc',
+      textColor: '#1e293b',
+      accentColor: '#22c55e',
+    },
+    {
+      sectionKey: 'cta',
+      order: 7,
+      title: 'Ready to Get Started?',
+      subtitle: 'Apply Now',
+      description: 'Join thousands of Ethiopians who have financed their dreams with Soreti.',
+      backgroundColor: '#22c55e',
+      textColor: '#ffffff',
+      accentColor: '#ffffff',
+      ctaText: 'Start Your Application',
+      ctaLink: '/apply',
+      ctaButtonColor: '#ffffff',
+      secondaryCtaText: 'Contact Us',
+      secondaryCtaLink: '/contact',
+    },
+  ];
+
+  const homepageSections = await Promise.all(
+    homepageSectionsData.map(async (section) => {
+      return prisma.homepageSection.upsert({
+        where: { sectionKey: section.sectionKey },
+        update: {
+          order: section.order,
+          title: section.title,
+          subtitle: section.subtitle,
+          description: section.description,
+          backgroundColor: section.backgroundColor,
+          textColor: section.textColor,
+          accentColor: section.accentColor,
+          ctaText: section.ctaText,
+          ctaLink: section.ctaLink,
+          ctaButtonColor: section.ctaButtonColor,
+          secondaryCtaText: section.secondaryCtaText,
+          secondaryCtaLink: section.secondaryCtaLink,
+        },
+        create: section,
+      });
+    })
+  );
+
+  console.log(`✅ Created ${homepageSections.length} homepage sections\n`);
+
+  // ============================================
   // SUMMARY
   // ============================================
   console.log('══════════════════════════════════════════════');
@@ -646,6 +757,7 @@ async function main() {
   console.log(`   Products: ${products.length}`);
   console.log(`   Users: ${users.length}`);
   console.log(`   Loan Applications: ${totalLoans}`);
+  console.log(`   Homepage Sections: ${homepageSections.length}`);
   console.log('\n🔐 Test Credentials (all use password: "password123"):');
   console.log('\n   Core System Users:');
   coreUsersData.forEach(u => {
