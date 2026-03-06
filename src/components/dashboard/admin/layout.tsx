@@ -319,18 +319,20 @@ export function AdminLayout({ children, user, currentView, onViewChange }: Admin
           )}
 
           {/* Scrollable Navigation */}
-          <ScrollArea className="flex-1 px-1 py-2">
-            {navigationCategories.map((category) => (
-              <NavCategory
-                key={category.id}
-                category={category}
-                currentView={currentView}
-                onNavigate={handleNavigation}
-                collapsed={sidebarCollapsed}
-                isSidebarCollapsed={sidebarCollapsed}
-              />
-            ))}
-          </ScrollArea>
+          <div className="flex-1 min-h-0 overflow-hidden">
+            <ScrollArea className="h-full px-1 py-2">
+              {navigationCategories.map((category) => (
+                <NavCategory
+                  key={category.id}
+                  category={category}
+                  currentView={currentView}
+                  onNavigate={handleNavigation}
+                  collapsed={sidebarCollapsed}
+                  isSidebarCollapsed={sidebarCollapsed}
+                />
+              ))}
+            </ScrollArea>
+          </div>
 
           {/* Collapse Toggle */}
           <button
@@ -418,17 +420,19 @@ export function AdminLayout({ children, user, currentView, onViewChange }: Admin
                   </div>
                 </div>
               </div>
-              <ScrollArea className="flex-1 py-2">
-                {navigationCategories.map((category) => (
-                  <NavCategory
-                    key={category.id}
-                    category={category}
-                    currentView={currentView}
-                    onNavigate={handleNavigation}
-                    onClose={() => setSidebarOpen(false)}
-                  />
-                ))}
-              </ScrollArea>
+              <div className="flex-1 min-h-0 overflow-hidden">
+                <ScrollArea className="h-full py-2">
+                  {navigationCategories.map((category) => (
+                    <NavCategory
+                      key={category.id}
+                      category={category}
+                      currentView={currentView}
+                      onNavigate={handleNavigation}
+                      onClose={() => setSidebarOpen(false)}
+                    />
+                  ))}
+                </ScrollArea>
+              </div>
               <div className="border-t border-white/10 p-4">
                 <div className="flex items-center gap-3 mb-3">
                   <Avatar className="h-10 w-10 border-2 border-emerald-500/30">
