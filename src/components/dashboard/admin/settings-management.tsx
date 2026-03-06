@@ -604,138 +604,392 @@ Sitemap: https://soreti.com/sitemap.xml`}
   )
 }
 
-// Appearance Settings Component
+// Appearance Settings Component - Connected to Homepage
 function AppearanceSettings() {
+  const [isLoading, setIsLoading] = useState(true)
+  const [isSaving, setIsSaving] = useState(false)
+  const [updateHomepage, setUpdateHomepage] = useState(true)
+  const [settings, setSettings] = useState({
+    primaryColor: '#10b981',
+    secondaryColor: '#14b8a6',
+    accentColor: '#10b981',
+    logoUrl: '',
+    logoDarkUrl: '',
+    faviconUrl: '',
+    fontFamily: 'Inter',
+    borderRadius: '0.75rem',
+  })
+  const [homepageSections, setHomepageSections] = useState<any[]>([])
+
+  // Fetch appearance settings and homepage sections
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const [appearanceRes, sectionsRes] = await Promise.all([
+          fetch('/api/settings/appearance'),
+          fetch('/api/homepage-sections')
+        ])
+
+        if (appearanceRes.ok) {
+          const data = await appearanceRes.json()
+          setSettings(prev => ({ ...prev, ...data.data }))
+        }
+
+        if (sectionsRes.ok) {
+          const data = await sectionsRes.json()
+          setHomepageSections(data.data || [])
+        }
+      } catch (error) {
+        console.error('Failed to fetch appearance settings:', error)
+      } finally {
+        setIsLoading(false)
+      }
+    }
+    fetchData()
+  }, [])
+
+  // Save settings
+  const handleSave = async () => {
+    setIsSaving(true)
+    try {
+      const response = await fetch('/api/settings/appearance', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...settings,
+          updateHomepageSections: updateHomepage
+        })
+      })
+
+      if (response.ok) {
+        // Refresh homepage sections if updated
+        if (updateHomepage) {
+          const sectionsRes = await fetch('/api/homepage-sections')
+          if (sectionsRes.ok) {
+            const data = await sectionsRes.json()
+            setHomepageSections(data.data || [])
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Failed to save appearance settings:', error)
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  // Color picker change handler
+  const handleColorChange = (field: string, value: string) => {
+    setSettings(prev => ({ ...prev, [field]: value }))
+  }
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <RefreshCw className="h-8 w-8 animate-spin text-emerald-500" />
+      </div>
+    )
+  }
+
   return (
     <div className="space-y-6">
-      {/* Branding */}
+      {/* Branding Colors */}
       <Card className="border-0 shadow-lg shadow-gray-200/50">
         <CardHeader className="border-b border-gray-100">
           <CardTitle className="flex items-center gap-2 text-base">
             <Palette className="h-5 w-5 text-emerald-500" />
-            Branding
+            Brand Colors
           </CardTitle>
-          <CardDescription>Configure your brand colors and assets</CardDescription>
+          <CardDescription>
+            Configure your brand colors. Changes sync with the homepage automatically.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="pt-6 space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="primaryColor">Primary Color</Label>
+              <div className="flex gap-2">
+                <div 
+                  className="w-10 h-10 rounded-lg border-2 border-gray-200 cursor-pointer overflow-hidden"
+                  style={{ backgroundColor: settings.primaryColor }}
+                >
+                  <input
+                    type="color"
+                    value={settings.primaryColor}
+                    onChange={(e) => handleColorChange('primaryColor', e.target.value)}
+                    className="w-full h-full opacity-0 cursor-pointer"
+                  />
+                </div>
+                <Input 
+                  value={settings.primaryColor}
+                  onChange={(e) => handleColorChange('primaryColor', e.target.value)}
+                  className="border-gray-200 focus:border-emerald-500 font-mono"
+                  placeholder="#10b981"
+                />
+              </div>
+              <p className="text-xs text-gray-500">Main brand color for buttons, links</p>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="secondaryColor">Secondary Color</Label>
+              <div className="flex gap-2">
+                <div 
+                  className="w-10 h-10 rounded-lg border-2 border-gray-200 cursor-pointer overflow-hidden"
+                  style={{ backgroundColor: settings.secondaryColor }}
+                >
+                  <input
+                    type="color"
+                    value={settings.secondaryColor}
+                    onChange={(e) => handleColorChange('secondaryColor', e.target.value)}
+                    className="w-full h-full opacity-0 cursor-pointer"
+                  />
+                </div>
+                <Input 
+                  value={settings.secondaryColor}
+                  onChange={(e) => handleColorChange('secondaryColor', e.target.value)}
+                  className="border-gray-200 focus:border-emerald-500 font-mono"
+                  placeholder="#14b8a6"
+                />
+              </div>
+              <p className="text-xs text-gray-500">Accent color for highlights</p>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="accentColor">Homepage Accent</Label>
+              <div className="flex gap-2">
+                <div 
+                  className="w-10 h-10 rounded-lg border-2 border-gray-200 cursor-pointer overflow-hidden"
+                  style={{ backgroundColor: settings.accentColor }}
+                >
+                  <input
+                    type="color"
+                    value={settings.accentColor}
+                    onChange={(e) => handleColorChange('accentColor', e.target.value)}
+                    className="w-full h-full opacity-0 cursor-pointer"
+                  />
+                </div>
+                <Input 
+                  value={settings.accentColor}
+                  onChange={(e) => handleColorChange('accentColor', e.target.value)}
+                  className="border-gray-200 focus:border-emerald-500 font-mono"
+                  placeholder="#10b981"
+                />
+              </div>
+              <p className="text-xs text-gray-500">Applied to all homepage sections</p>
+            </div>
+          </div>
+
+          {/* Sync Toggle */}
+          <div className="flex items-center justify-between p-4 rounded-xl bg-emerald-50 border border-emerald-200">
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-emerald-100">
+                <Sparkles className="h-5 w-5 text-emerald-600" />
+              </div>
+              <div>
+                <p className="text-sm font-medium text-gray-900">Sync with Homepage</p>
+                <p className="text-xs text-gray-500">Update all homepage sections with accent color</p>
+              </div>
+            </div>
+            <Switch 
+              checked={updateHomepage}
+              onCheckedChange={setUpdateHomepage}
+            />
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Logo & Favicon */}
+      <Card className="border-0 shadow-lg shadow-gray-200/50">
+        <CardHeader className="border-b border-gray-100">
+          <CardTitle className="flex items-center gap-2 text-base">
+            <Image className="h-5 w-5 text-violet-500" />
+            Logo & Favicon
+          </CardTitle>
+          <CardDescription>Upload your brand assets</CardDescription>
         </CardHeader>
         <CardContent className="pt-6 space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label>Primary Color</Label>
-              <div className="flex gap-2">
-                <div className="w-10 h-10 rounded-lg bg-emerald-500 border-2 border-emerald-600" />
-                <Input defaultValue="#10B981" className="border-gray-200 focus:border-emerald-500" />
+              <Label>Logo (Light Background)</Label>
+              <div className="border-2 border-dashed border-gray-200 rounded-xl p-6 text-center hover:border-emerald-500 transition-colors cursor-pointer">
+                {settings.logoUrl ? (
+                  <img src={settings.logoUrl} alt="Logo" className="h-12 mx-auto mb-2" />
+                ) : (
+                  <>
+                    <Image className="h-8 w-8 mx-auto text-gray-400 mb-2" />
+                    <p className="text-sm text-gray-500">Drop logo here or click to upload</p>
+                    <p className="text-xs text-gray-400 mt-1">PNG, SVG (max 2MB)</p>
+                  </>
+                )}
               </div>
+              {settings.logoUrl && (
+                <Input 
+                  value={settings.logoUrl}
+                  onChange={(e) => handleColorChange('logoUrl', e.target.value)}
+                  placeholder="Logo URL"
+                  className="border-gray-200"
+                />
+              )}
             </div>
             <div className="space-y-2">
-              <Label>Secondary Color</Label>
-              <div className="flex gap-2">
-                <div className="w-10 h-10 rounded-lg bg-teal-500 border-2 border-teal-600" />
-                <Input defaultValue="#14B8A6" className="border-gray-200 focus:border-emerald-500" />
+              <Label>Logo (Dark Background)</Label>
+              <div className="border-2 border-dashed border-gray-200 rounded-xl p-6 text-center bg-slate-800 hover:border-emerald-500 transition-colors cursor-pointer">
+                {settings.logoDarkUrl ? (
+                  <img src={settings.logoDarkUrl} alt="Logo Dark" className="h-12 mx-auto mb-2" />
+                ) : (
+                  <>
+                    <Image className="h-8 w-8 mx-auto text-gray-400 mb-2" />
+                    <p className="text-sm text-gray-400">Drop logo here or click to upload</p>
+                    <p className="text-xs text-gray-500 mt-1">PNG, SVG (max 2MB)</p>
+                  </>
+                )}
               </div>
-            </div>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label>Logo (Light)</Label>
-              <div className="border-2 border-dashed border-gray-200 rounded-xl p-6 text-center">
-                <Image className="h-8 w-8 mx-auto text-gray-400 mb-2" />
-                <p className="text-sm text-gray-500">Drop logo here or click to upload</p>
-                <p className="text-xs text-gray-400 mt-1">PNG, SVG (max 2MB)</p>
-              </div>
-            </div>
-            <div className="space-y-2">
-              <Label>Logo (Dark)</Label>
-              <div className="border-2 border-dashed border-gray-200 rounded-xl p-6 text-center bg-slate-800">
-                <Image className="h-8 w-8 mx-auto text-gray-400 mb-2" />
-                <p className="text-sm text-gray-400">Drop logo here or click to upload</p>
-                <p className="text-xs text-gray-500 mt-1">PNG, SVG (max 2MB)</p>
-              </div>
+              {settings.logoDarkUrl && (
+                <Input 
+                  value={settings.logoDarkUrl}
+                  onChange={(e) => handleColorChange('logoDarkUrl', e.target.value)}
+                  placeholder="Logo Dark URL"
+                  className="border-gray-200"
+                />
+              )}
             </div>
           </div>
           <div className="space-y-2">
             <Label>Favicon</Label>
             <div className="flex items-center gap-4">
-              <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-emerald-400 to-teal-500 flex items-center justify-center">
-                <span className="text-white font-bold text-lg">S</span>
+              <div 
+                className="w-12 h-12 rounded-lg flex items-center justify-center text-white font-bold text-lg"
+                style={{ background: `linear-gradient(to bottom right, ${settings.primaryColor}, ${settings.secondaryColor})` }}
+              >
+                {settings.faviconUrl ? (
+                  <img src={settings.faviconUrl} alt="Favicon" className="w-8 h-8" />
+                ) : (
+                  'S'
+                )}
               </div>
-              <Button variant="outline" className="border-gray-200">
-                Upload New Favicon
-              </Button>
+              <Input 
+                value={settings.faviconUrl}
+                onChange={(e) => handleColorChange('faviconUrl', e.target.value)}
+                placeholder="Favicon URL (32x32 PNG/ICO)"
+                className="flex-1 border-gray-200"
+              />
             </div>
           </div>
         </CardContent>
       </Card>
 
-      {/* Theme Settings */}
-      <Card className="border-0 shadow-lg shadow-gray-200/50">
-        <CardHeader className="border-b border-gray-100">
-          <CardTitle className="flex items-center gap-2 text-base">
-            <Monitor className="h-5 w-5 text-violet-500" />
-            Theme Settings
-          </CardTitle>
-          <CardDescription>Configure display preferences</CardDescription>
-        </CardHeader>
-        <CardContent className="pt-6 space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {[
-              { id: 'light', label: 'Light', preview: 'bg-white border-gray-200' },
-              { id: 'dark', label: 'Dark', preview: 'bg-slate-800 border-slate-700' },
-              { id: 'system', label: 'System', preview: 'bg-gradient-to-r from-white to-slate-800' },
-            ].map((theme) => (
-              <div key={theme.id} className={cn(
-                'relative p-4 rounded-xl border-2 cursor-pointer transition-all',
-                theme.id === 'light' ? 'border-emerald-500 bg-emerald-50' : 'border-gray-200 hover:border-gray-300'
-              )}>
-                <div className={cn('w-full h-16 rounded-lg border mb-3', theme.preview)} />
-                <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium">{theme.label}</span>
-                  {theme.id === 'light' && (
-                    <div className="w-4 h-4 rounded-full bg-emerald-500 flex items-center justify-center">
-                      <CheckCircle className="h-3 w-3 text-white" />
-                    </div>
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
-          <div className="flex items-center justify-between p-4 rounded-xl bg-gray-50 border border-gray-100">
-            <div>
-              <p className="text-sm font-medium text-gray-900">Compact Mode</p>
-              <p className="text-xs text-gray-500">Reduce spacing for denser display</p>
-            </div>
-            <Switch />
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Layout Options */}
+      {/* Homepage Sections Preview */}
       <Card className="border-0 shadow-lg shadow-gray-200/50">
         <CardHeader className="border-b border-gray-100">
           <CardTitle className="flex items-center gap-2 text-base">
             <Layout className="h-5 w-5 text-amber-500" />
-            Layout Options
+            Homepage Sections Preview
           </CardTitle>
-          <CardDescription>Customize layout preferences</CardDescription>
+          <CardDescription>
+            Preview how accent color applies to homepage sections
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="pt-6">
+          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
+            {homepageSections.map((section) => (
+              <div
+                key={section.id}
+                className="p-3 rounded-xl border border-gray-200 hover:border-gray-300 transition-colors"
+              >
+                <div 
+                  className="w-full h-8 rounded-lg mb-2"
+                  style={{ backgroundColor: section.accentColor || settings.accentColor }}
+                />
+                <p className="text-xs font-medium text-gray-900 truncate capitalize">
+                  {section.sectionKey.replace(/_/g, ' ')}
+                </p>
+                <p className="text-[10px] text-gray-500 font-mono">
+                  {section.accentColor || settings.accentColor}
+                </p>
+              </div>
+            ))}
+          </div>
+          {updateHomepage && (
+            <div className="mt-4 p-3 bg-amber-50 rounded-lg flex items-start gap-2 border border-amber-200">
+              <AlertCircle className="h-4 w-4 text-amber-600 mt-0.5 shrink-0" />
+              <p className="text-xs text-amber-700">
+                Saving will update all homepage sections with the new accent color. 
+                You can manage individual sections in the <strong>Homepage Manager</strong>.
+              </p>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Typography & Spacing */}
+      <Card className="border-0 shadow-lg shadow-gray-200/50">
+        <CardHeader className="border-b border-gray-100">
+          <CardTitle className="flex items-center gap-2 text-base">
+            <Monitor className="h-5 w-5 text-cyan-500" />
+            Typography & Spacing
+          </CardTitle>
+          <CardDescription>Configure font and spacing preferences</CardDescription>
         </CardHeader>
         <CardContent className="pt-6 space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="flex items-center justify-between p-4 rounded-xl bg-gray-50 border border-gray-100">
-              <div>
-                <p className="text-sm font-medium text-gray-900">Collapsible Sidebar</p>
-                <p className="text-xs text-gray-500">Allow sidebar collapse</p>
-              </div>
-              <Switch defaultChecked />
+            <div className="space-y-2">
+              <Label>Font Family</Label>
+              <Select 
+                value={settings.fontFamily} 
+                onValueChange={(value) => handleColorChange('fontFamily', value)}
+              >
+                <SelectTrigger className="border-gray-200">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Inter">Inter</SelectItem>
+                  <SelectItem value="Roboto">Roboto</SelectItem>
+                  <SelectItem value="Open Sans">Open Sans</SelectItem>
+                  <SelectItem value="Lato">Lato</SelectItem>
+                  <SelectItem value="Poppins">Poppins</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
-            <div className="flex items-center justify-between p-4 rounded-xl bg-gray-50 border border-gray-100">
-              <div>
-                <p className="text-sm font-medium text-gray-900">Fixed Header</p>
-                <p className="text-xs text-gray-500">Sticky navigation header</p>
-              </div>
-              <Switch defaultChecked />
+            <div className="space-y-2">
+              <Label>Border Radius</Label>
+              <Select 
+                value={settings.borderRadius} 
+                onValueChange={(value) => handleColorChange('borderRadius', value)}
+              >
+                <SelectTrigger className="border-gray-200">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="0.25rem">Small (4px)</SelectItem>
+                  <SelectItem value="0.5rem">Medium (8px)</SelectItem>
+                  <SelectItem value="0.75rem">Large (12px)</SelectItem>
+                  <SelectItem value="1rem">Extra Large (16px)</SelectItem>
+                  <SelectItem value="9999px">Full (Pill)</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
           </div>
         </CardContent>
       </Card>
+
+      {/* Save Button */}
+      <div className="flex justify-end gap-3">
+        <Button
+          onClick={handleSave}
+          disabled={isSaving}
+          className="bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white shadow-lg shadow-emerald-500/25"
+        >
+          {isSaving ? (
+            <>
+              <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+              Saving...
+            </>
+          ) : (
+            <>
+              <Save className="h-4 w-4 mr-2" />
+              Save Appearance
+            </>
+          )}
+        </Button>
+      </div>
     </div>
   )
 }
