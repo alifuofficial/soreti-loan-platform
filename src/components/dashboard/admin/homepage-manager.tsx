@@ -707,10 +707,10 @@ export function HomepageManager() {
             {/* Preview */}
             <div className="space-y-2">
               <h4 className="text-sm font-semibold text-gray-700">Preview</h4>
-              <div 
+              <div
                 className="rounded-xl p-6 border border-gray-200 min-h-[120px]"
                 style={{
-                  background: formData.backgroundColor || '#ffffff',
+                  backgroundColor: formData.backgroundColor || '#ffffff',
                   color: formData.textColor || '#333333',
                   backgroundImage: formData.backgroundImageUrl ? `url(${formData.backgroundImageUrl})` : undefined,
                   backgroundSize: 'cover',
