@@ -35,10 +35,17 @@ interface Bank {
   id: string
   name: string
   code: string
-  email: string
-  phone: string
-  address: string
+  contactEmail?: string
+  contactPhone?: string
+  description?: string
+  logoUrl?: string
+  websiteUrl?: string
+  minLoanAmount?: number
+  maxLoanAmount?: number
+  interestRate?: number
+  maxTermMonths?: number
   isActive: boolean
+  isPartner: boolean
   createdAt: string
   _count?: {
     users: number
@@ -57,10 +64,16 @@ export function BanksManagement() {
   const [formData, setFormData] = useState({
     name: '',
     code: '',
-    email: '',
-    phone: '',
-    address: '',
-    isActive: true
+    contactEmail: '',
+    contactPhone: '',
+    description: '',
+    websiteUrl: '',
+    minLoanAmount: 1000,
+    maxLoanAmount: 1000000,
+    interestRate: 12.5,
+    maxTermMonths: 36,
+    isActive: true,
+    isPartner: true
   })
 
   useEffect(() => {
@@ -84,44 +97,92 @@ export function BanksManagement() {
   }
 
   const handleAddBank = async () => {
+    if (!formData.name || !formData.code) {
+      alert('Bank name and code are required')
+      return
+    }
+    
     try {
       const response = await fetch('/api/banks', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData)
+        body: JSON.stringify({
+          name: formData.name,
+          code: formData.code,
+          contactEmail: formData.contactEmail || null,
+          contactPhone: formData.contactPhone || null,
+          description: formData.description || null,
+          websiteUrl: formData.websiteUrl || null,
+          minLoanAmount: formData.minLoanAmount,
+          maxLoanAmount: formData.maxLoanAmount,
+          interestRate: formData.interestRate,
+          maxTermMonths: formData.maxTermMonths,
+          isActive: formData.isActive,
+          isPartner: formData.isPartner
+        })
       })
+      
+      const data = await response.json()
+      
       if (response.ok) {
         fetchBanks()
         setShowAddDialog(false)
         resetForm()
+      } else {
+        alert(data.error || 'Failed to add bank')
       }
     } catch (error) {
       console.error('Failed to add bank:', error)
+      alert('Failed to add bank. Please try again.')
     }
   }
 
   const handleUpdateBank = async () => {
     if (!editingBank) return
+    if (!formData.name || !formData.code) {
+      alert('Bank name and code are required')
+      return
+    }
+    
     try {
       const response = await fetch(`/api/banks/${editingBank.id}`, {
-        method: 'PATCH',
+        method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData)
+        body: JSON.stringify({
+          name: formData.name,
+          code: formData.code,
+          contactEmail: formData.contactEmail || null,
+          contactPhone: formData.contactPhone || null,
+          description: formData.description || null,
+          websiteUrl: formData.websiteUrl || null,
+          minLoanAmount: formData.minLoanAmount,
+          maxLoanAmount: formData.maxLoanAmount,
+          interestRate: formData.interestRate,
+          maxTermMonths: formData.maxTermMonths,
+          isActive: formData.isActive,
+          isPartner: formData.isPartner
+        })
       })
+      
+      const data = await response.json()
+      
       if (response.ok) {
         fetchBanks()
         setEditingBank(null)
         resetForm()
+      } else {
+        alert(data.error || 'Failed to update bank')
       }
     } catch (error) {
       console.error('Failed to update bank:', error)
+      alert('Failed to update bank. Please try again.')
     }
   }
 
   const handleToggleStatus = async (bank: Bank) => {
     try {
       const response = await fetch(`/api/banks/${bank.id}`, {
-        method: 'PATCH',
+        method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ isActive: !bank.isActive })
       })
@@ -149,10 +210,16 @@ export function BanksManagement() {
     setFormData({
       name: '',
       code: '',
-      email: '',
-      phone: '',
-      address: '',
-      isActive: true
+      contactEmail: '',
+      contactPhone: '',
+      description: '',
+      websiteUrl: '',
+      minLoanAmount: 1000,
+      maxLoanAmount: 1000000,
+      interestRate: 12.5,
+      maxTermMonths: 36,
+      isActive: true,
+      isPartner: true
     })
   }
 
@@ -161,10 +228,16 @@ export function BanksManagement() {
     setFormData({
       name: bank.name,
       code: bank.code,
-      email: bank.email || '',
-      phone: bank.phone || '',
-      address: bank.address || '',
-      isActive: bank.isActive
+      contactEmail: bank.contactEmail || '',
+      contactPhone: bank.contactPhone || '',
+      description: bank.description || '',
+      websiteUrl: bank.websiteUrl || '',
+      minLoanAmount: bank.minLoanAmount || 1000,
+      maxLoanAmount: bank.maxLoanAmount || 1000000,
+      interestRate: bank.interestRate || 12.5,
+      maxTermMonths: bank.maxTermMonths || 36,
+      isActive: bank.isActive,
+      isPartner: bank.isPartner
     })
   }
 
@@ -355,8 +428,8 @@ export function BanksManagement() {
                       </div>
                     </td>
                     <td className="px-6 py-4">
-                      <p className="text-sm text-gray-600">{bank.email || '-'}</p>
-                      <p className="text-xs text-gray-400">{bank.phone || '-'}</p>
+                      <p className="text-sm text-gray-600">{bank.contactEmail || '-'}</p>
+                      <p className="text-xs text-gray-400">{bank.contactPhone || '-'}</p>
                     </td>
                     <td className="px-6 py-4">
                       <Badge className={cn(
@@ -455,37 +528,93 @@ export function BanksManagement() {
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="email">Email</Label>
+                <Label htmlFor="email">Contact Email</Label>
                 <Input
                   id="email"
                   type="email"
-                  value={formData.email}
-                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                  value={formData.contactEmail}
+                  onChange={(e) => setFormData({ ...formData, contactEmail: e.target.value })}
                   placeholder="bank@example.com"
                   className="border-gray-200 focus:border-emerald-500 focus:ring-emerald-500/20"
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="phone">Phone</Label>
+                <Label htmlFor="phone">Contact Phone</Label>
                 <Input
                   id="phone"
-                  value={formData.phone}
-                  onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                  value={formData.contactPhone}
+                  onChange={(e) => setFormData({ ...formData, contactPhone: e.target.value })}
                   placeholder="+251 9XX XXX XXX"
                   className="border-gray-200 focus:border-emerald-500 focus:ring-emerald-500/20"
                 />
               </div>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="address">Address</Label>
+              <Label htmlFor="website">Website URL</Label>
+              <Input
+                id="website"
+                type="url"
+                value={formData.websiteUrl}
+                onChange={(e) => setFormData({ ...formData, websiteUrl: e.target.value })}
+                placeholder="https://www.bank.com"
+                className="border-gray-200 focus:border-emerald-500 focus:ring-emerald-500/20"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="description">Description</Label>
               <Textarea
-                id="address"
-                value={formData.address}
-                onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-                placeholder="Full address"
+                id="description"
+                value={formData.description}
+                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                placeholder="Brief description of the bank"
                 rows={2}
                 className="border-gray-200 focus:border-emerald-500 focus:ring-emerald-500/20"
               />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="minLoan">Min Loan Amount</Label>
+                <Input
+                  id="minLoan"
+                  type="number"
+                  value={formData.minLoanAmount}
+                  onChange={(e) => setFormData({ ...formData, minLoanAmount: Number(e.target.value) })}
+                  className="border-gray-200 focus:border-emerald-500 focus:ring-emerald-500/20"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="maxLoan">Max Loan Amount</Label>
+                <Input
+                  id="maxLoan"
+                  type="number"
+                  value={formData.maxLoanAmount}
+                  onChange={(e) => setFormData({ ...formData, maxLoanAmount: Number(e.target.value) })}
+                  className="border-gray-200 focus:border-emerald-500 focus:ring-emerald-500/20"
+                />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="interestRate">Interest Rate (%)</Label>
+                <Input
+                  id="interestRate"
+                  type="number"
+                  step="0.1"
+                  value={formData.interestRate}
+                  onChange={(e) => setFormData({ ...formData, interestRate: Number(e.target.value) })}
+                  className="border-gray-200 focus:border-emerald-500 focus:ring-emerald-500/20"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="maxTerm">Max Term (Months)</Label>
+                <Input
+                  id="maxTerm"
+                  type="number"
+                  value={formData.maxTermMonths}
+                  onChange={(e) => setFormData({ ...formData, maxTermMonths: Number(e.target.value) })}
+                  className="border-gray-200 focus:border-emerald-500 focus:ring-emerald-500/20"
+                />
+              </div>
             </div>
             <div className="flex items-center justify-between p-4 rounded-xl bg-gray-50 border border-gray-100">
               <div className="flex items-center gap-3">
@@ -553,34 +682,89 @@ export function BanksManagement() {
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="edit-email">Email</Label>
+                <Label htmlFor="edit-email">Contact Email</Label>
                 <Input
                   id="edit-email"
                   type="email"
-                  value={formData.email}
-                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                  value={formData.contactEmail}
+                  onChange={(e) => setFormData({ ...formData, contactEmail: e.target.value })}
                   className="border-gray-200 focus:border-emerald-500 focus:ring-emerald-500/20"
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="edit-phone">Phone</Label>
+                <Label htmlFor="edit-phone">Contact Phone</Label>
                 <Input
                   id="edit-phone"
-                  value={formData.phone}
-                  onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                  value={formData.contactPhone}
+                  onChange={(e) => setFormData({ ...formData, contactPhone: e.target.value })}
                   className="border-gray-200 focus:border-emerald-500 focus:ring-emerald-500/20"
                 />
               </div>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="edit-address">Address</Label>
+              <Label htmlFor="edit-website">Website URL</Label>
+              <Input
+                id="edit-website"
+                type="url"
+                value={formData.websiteUrl}
+                onChange={(e) => setFormData({ ...formData, websiteUrl: e.target.value })}
+                className="border-gray-200 focus:border-emerald-500 focus:ring-emerald-500/20"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-description">Description</Label>
               <Textarea
-                id="edit-address"
-                value={formData.address}
-                onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+                id="edit-description"
+                value={formData.description}
+                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                 rows={2}
                 className="border-gray-200 focus:border-emerald-500 focus:ring-emerald-500/20"
               />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="edit-minLoan">Min Loan Amount</Label>
+                <Input
+                  id="edit-minLoan"
+                  type="number"
+                  value={formData.minLoanAmount}
+                  onChange={(e) => setFormData({ ...formData, minLoanAmount: Number(e.target.value) })}
+                  className="border-gray-200 focus:border-emerald-500 focus:ring-emerald-500/20"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-maxLoan">Max Loan Amount</Label>
+                <Input
+                  id="edit-maxLoan"
+                  type="number"
+                  value={formData.maxLoanAmount}
+                  onChange={(e) => setFormData({ ...formData, maxLoanAmount: Number(e.target.value) })}
+                  className="border-gray-200 focus:border-emerald-500 focus:ring-emerald-500/20"
+                />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="edit-interestRate">Interest Rate (%)</Label>
+                <Input
+                  id="edit-interestRate"
+                  type="number"
+                  step="0.1"
+                  value={formData.interestRate}
+                  onChange={(e) => setFormData({ ...formData, interestRate: Number(e.target.value) })}
+                  className="border-gray-200 focus:border-emerald-500 focus:ring-emerald-500/20"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-maxTerm">Max Term (Months)</Label>
+                <Input
+                  id="edit-maxTerm"
+                  type="number"
+                  value={formData.maxTermMonths}
+                  onChange={(e) => setFormData({ ...formData, maxTermMonths: Number(e.target.value) })}
+                  className="border-gray-200 focus:border-emerald-500 focus:ring-emerald-500/20"
+                />
+              </div>
             </div>
             <div className="flex items-center justify-between p-4 rounded-xl bg-gray-50 border border-gray-100">
               <div className="flex items-center gap-3">
@@ -653,22 +837,28 @@ function BankCard({
         </div>
 
         <div className="space-y-2 mb-4">
-          {bank.email && (
+          {bank.contactEmail && (
             <div className="flex items-center gap-2 text-sm text-gray-600">
               <Mail className="h-3.5 w-3.5 text-gray-400" />
-              <span className="truncate">{bank.email}</span>
+              <span className="truncate">{bank.contactEmail}</span>
             </div>
           )}
-          {bank.phone && (
+          {bank.contactPhone && (
             <div className="flex items-center gap-2 text-sm text-gray-600">
               <Phone className="h-3.5 w-3.5 text-gray-400" />
-              <span>{bank.phone}</span>
+              <span>{bank.contactPhone}</span>
             </div>
           )}
-          {bank.address && (
+          {bank.websiteUrl && (
+            <div className="flex items-center gap-2 text-sm text-gray-600">
+              <Globe className="h-3.5 w-3.5 text-gray-400" />
+              <span className="truncate">{bank.websiteUrl}</span>
+            </div>
+          )}
+          {bank.description && (
             <div className="flex items-start gap-2 text-sm text-gray-600">
-              <MapPin className="h-3.5 w-3.5 text-gray-400 mt-0.5" />
-              <span className="line-clamp-2">{bank.address}</span>
+              <FileText className="h-3.5 w-3.5 text-gray-400 mt-0.5" />
+              <span className="line-clamp-2">{bank.description}</span>
             </div>
           )}
         </div>
