@@ -20,7 +20,7 @@ import {
   Building2, Plus, Search, MoreHorizontal, Edit, Trash2, 
   Eye, Filter, Download, RefreshCw, MapPin, Phone, Mail,
   Globe, Users, FileText, Shield, CheckCircle, XCircle,
-  ArrowUpRight, AlertCircle, Sparkles, LayoutGrid, List
+  ArrowUpRight, AlertCircle, Sparkles, LayoutGrid, List, Upload, Image as ImageIcon, Loader2
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import {
@@ -61,9 +61,11 @@ export function BanksManagement() {
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
   const [showAddDialog, setShowAddDialog] = useState(false)
   const [editingBank, setEditingBank] = useState<Bank | null>(null)
+  const [isUploadingLogo, setIsUploadingLogo] = useState(false)
   const [formData, setFormData] = useState({
     name: '',
     code: '',
+    logoUrl: '',
     contactEmail: '',
     contactPhone: '',
     description: '',
@@ -97,6 +99,48 @@ export function BanksManagement() {
     }
   }
 
+  // Handle logo upload
+  const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      alert('Please select a valid image file')
+      return
+    }
+
+    // Validate file size (max 2MB)
+    if (file.size > 2 * 1024 * 1024) {
+      alert('Image size must be less than 2MB')
+      return
+    }
+
+    setIsUploadingLogo(true)
+    try {
+      const uploadFormData = new FormData()
+      uploadFormData.append('file', file)
+
+      const response = await fetch('/api/banks/upload-logo', {
+        method: 'POST',
+        body: uploadFormData
+      })
+
+      const result = await response.json()
+
+      if (response.ok && result.logoUrl) {
+        setFormData({ ...formData, logoUrl: result.logoUrl })
+      } else {
+        alert(result.error || 'Failed to upload logo')
+      }
+    } catch (error) {
+      console.error('Failed to upload logo:', error)
+      alert('Failed to upload logo. Please try again.')
+    } finally {
+      setIsUploadingLogo(false)
+    }
+  }
+
   const handleAddBank = async () => {
     if (!formData.name || !formData.code) {
       alert('Bank name and code are required')
@@ -110,6 +154,7 @@ export function BanksManagement() {
         body: JSON.stringify({
           name: formData.name,
           code: formData.code,
+          logoUrl: formData.logoUrl || null,
           contactEmail: formData.contactEmail || null,
           contactPhone: formData.contactPhone || null,
           description: formData.description || null,
@@ -155,6 +200,7 @@ export function BanksManagement() {
         body: JSON.stringify({
           name: formData.name,
           code: formData.code,
+          logoUrl: formData.logoUrl || null,
           contactEmail: formData.contactEmail || null,
           contactPhone: formData.contactPhone || null,
           description: formData.description || null,
@@ -214,6 +260,7 @@ export function BanksManagement() {
     setFormData({
       name: '',
       code: '',
+      logoUrl: '',
       contactEmail: '',
       contactPhone: '',
       description: '',
@@ -232,6 +279,7 @@ export function BanksManagement() {
     setFormData({
       name: bank.name,
       code: bank.code,
+      logoUrl: bank.logoUrl || '',
       contactEmail: bank.contactEmail || '',
       contactPhone: bank.contactPhone || '',
       description: bank.description || '',
@@ -422,8 +470,16 @@ export function BanksManagement() {
                   <tr key={bank.id} className="hover:bg-gray-50/50 transition-colors">
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-3">
-                        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-amber-400 to-orange-500 text-white font-bold text-sm">
-                          {bank.code.substring(0, 2)}
+                        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-amber-400 to-orange-500 text-white font-bold text-sm overflow-hidden">
+                          {bank.logoUrl ? (
+                            <img 
+                              src={bank.logoUrl} 
+                              alt={bank.name}
+                              className="w-full h-full object-contain bg-white"
+                            />
+                          ) : (
+                            bank.code.substring(0, 2)
+                          )}
                         </div>
                         <div>
                           <p className="font-medium text-gray-900">{bank.name}</p>
@@ -528,6 +584,66 @@ export function BanksManagement() {
                   maxLength={5}
                   className="border-gray-200 focus:border-emerald-500 focus:ring-emerald-500/20"
                 />
+              </div>
+            </div>
+            {/* Logo Upload */}
+            <div className="space-y-2">
+              <Label>Bank Logo</Label>
+              <div className="flex items-center gap-4">
+                <div className="flex-shrink-0">
+                  {formData.logoUrl ? (
+                    <div className="relative w-20 h-20 rounded-xl overflow-hidden border-2 border-gray-200">
+                      <img 
+                        src={formData.logoUrl} 
+                        alt="Bank logo" 
+                        className="w-full h-full object-contain bg-white"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setFormData({ ...formData, logoUrl: '' })}
+                        className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white rounded-full flex items-center justify-center text-xs hover:bg-red-600"
+                      >
+                        ×
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="w-20 h-20 rounded-xl border-2 border-dashed border-gray-300 flex items-center justify-center bg-gray-50">
+                      <ImageIcon className="h-8 w-8 text-gray-400" />
+                    </div>
+                  )}
+                </div>
+                <div className="flex-1">
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleLogoUpload}
+                    className="hidden"
+                    id="logo-upload-add"
+                    disabled={isUploadingLogo}
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => document.getElementById('logo-upload-add')?.click()}
+                    disabled={isUploadingLogo}
+                    className="border-gray-200"
+                  >
+                    {isUploadingLogo ? (
+                      <>
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        Uploading...
+                      </>
+                    ) : (
+                      <>
+                        <Upload className="h-4 w-4 mr-2" />
+                        Upload Logo
+                      </>
+                    )}
+                  </Button>
+                  <p className="text-xs text-gray-500 mt-2">
+                    PNG, JPG or SVG. Max 2MB. Recommended: Square image.
+                  </p>
+                </div>
               </div>
             </div>
             <div className="grid grid-cols-2 gap-4">
@@ -684,6 +800,66 @@ export function BanksManagement() {
                 />
               </div>
             </div>
+            {/* Logo Upload for Edit */}
+            <div className="space-y-2">
+              <Label>Bank Logo</Label>
+              <div className="flex items-center gap-4">
+                <div className="flex-shrink-0">
+                  {formData.logoUrl ? (
+                    <div className="relative w-20 h-20 rounded-xl overflow-hidden border-2 border-gray-200">
+                      <img 
+                        src={formData.logoUrl} 
+                        alt="Bank logo" 
+                        className="w-full h-full object-contain bg-white"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setFormData({ ...formData, logoUrl: '' })}
+                        className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white rounded-full flex items-center justify-center text-xs hover:bg-red-600"
+                      >
+                        ×
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="w-20 h-20 rounded-xl border-2 border-dashed border-gray-300 flex items-center justify-center bg-gray-50">
+                      <ImageIcon className="h-8 w-8 text-gray-400" />
+                    </div>
+                  )}
+                </div>
+                <div className="flex-1">
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleLogoUpload}
+                    className="hidden"
+                    id="logo-upload-edit"
+                    disabled={isUploadingLogo}
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => document.getElementById('logo-upload-edit')?.click()}
+                    disabled={isUploadingLogo}
+                    className="border-gray-200"
+                  >
+                    {isUploadingLogo ? (
+                      <>
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        Uploading...
+                      </>
+                    ) : (
+                      <>
+                        <Upload className="h-4 w-4 mr-2" />
+                        Upload Logo
+                      </>
+                    )}
+                  </Button>
+                  <p className="text-xs text-gray-500 mt-2">
+                    PNG, JPG or SVG. Max 2MB. Recommended: Square image.
+                  </p>
+                </div>
+              </div>
+            </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="edit-email">Contact Email</Label>
@@ -822,8 +998,16 @@ function BankCard({
       <CardContent className="pt-6">
         <div className="flex items-start justify-between mb-4">
           <div className="flex items-center gap-3">
-            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-amber-400 to-orange-500 text-white font-bold shadow-lg shadow-amber-500/20">
-              {bank.code.substring(0, 2)}
+            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-amber-400 to-orange-500 text-white font-bold shadow-lg shadow-amber-500/20 overflow-hidden">
+              {bank.logoUrl ? (
+                <img 
+                  src={bank.logoUrl} 
+                  alt={bank.name}
+                  className="w-full h-full object-contain bg-white"
+                />
+              ) : (
+                bank.code.substring(0, 2)
+              )}
             </div>
             <div>
               <h3 className="font-semibold text-gray-900">{bank.name}</h3>
