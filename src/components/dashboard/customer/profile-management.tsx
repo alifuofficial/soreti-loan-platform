@@ -1,7 +1,6 @@
 'use client'
 
 import { useState, useRef } from 'react'
-import { useRouter } from 'next/navigation'
 import { useSession } from 'next-auth/react'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -41,7 +40,6 @@ interface ProfileManagementProps {
 }
 
 export function ProfileManagement({ user }: ProfileManagementProps) {
-  const router = useRouter()
   const { update: updateSession } = useSession()
   const fileInputRef = useRef<HTMLInputElement>(null)
   
@@ -71,6 +69,9 @@ export function ProfileManagement({ user }: ProfileManagementProps) {
   const handleImageSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
+
+    // Reset the input so the same file can be selected again
+    e.target.value = ''
 
     console.log('[Profile Upload] File selected:', file.name, file.type, file.size)
 
@@ -108,8 +109,11 @@ export function ProfileManagement({ user }: ProfileManagementProps) {
         setProfileImage(data.imageUrl)
         setImageSuccess('Profile picture updated successfully!')
         // Update session to refresh the image in header
-        await updateSession()
-        router.refresh()
+        try {
+          await updateSession({ image: data.imageUrl })
+        } catch (sessionError) {
+          console.log('[Profile Upload] Session update error:', sessionError)
+        }
       } else {
         setImageError(data.error || 'Failed to upload image')
       }
@@ -136,8 +140,11 @@ export function ProfileManagement({ user }: ProfileManagementProps) {
         setProfileImage(null)
         setImageSuccess('Profile picture removed successfully!')
         // Update session to refresh the image in header
-        await updateSession()
-        router.refresh()
+        try {
+          await updateSession({ image: null })
+        } catch (sessionError) {
+          console.log('[Profile Upload] Session update error:', sessionError)
+        }
       } else {
         const data = await response.json()
         setImageError(data.error || 'Failed to remove image')
