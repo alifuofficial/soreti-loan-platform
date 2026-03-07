@@ -176,6 +176,19 @@ export function AuthModals({
           setError('Password must be at least 8 characters')
           return false
         }
+        // Match backend password requirements
+        if (!/[A-Z]/.test(registerData.password)) {
+          setError('Password must contain at least one uppercase letter')
+          return false
+        }
+        if (!/[a-z]/.test(registerData.password)) {
+          setError('Password must contain at least one lowercase letter')
+          return false
+        }
+        if (!/[0-9]/.test(registerData.password)) {
+          setError('Password must contain at least one number')
+          return false
+        }
         if (registerData.password !== registerData.confirmPassword) {
           setError('Passwords do not match')
           return false
@@ -251,24 +264,34 @@ export function AuthModals({
       const data = await response.json()
 
       if (!response.ok) {
-        setError(data.error || 'Registration failed')
-      } else {
-        const result = await signIn('credentials', {
-          email: registerData.email,
-          password: registerData.password,
-          redirect: false,
-        })
-
-        if (result?.ok) {
-          onClose()
-          router.refresh()
-          window.location.href = '/?view=dashboard'
+        // Handle validation errors with details
+        if (data.details) {
+          const errorMessages = Object.values(data.details).flat().join('. ')
+          setError(errorMessages || data.error || 'Registration failed')
         } else {
-          onSwitchToLogin()
+          setError(data.error || 'Registration failed')
         }
+        return
       }
-    } catch {
-      setError('An unexpected error occurred')
+
+      // Registration successful, now sign in
+      const result = await signIn('credentials', {
+        email: registerData.email,
+        password: registerData.password,
+        redirect: false,
+      })
+
+      if (result?.ok) {
+        onClose()
+        router.refresh()
+        window.location.href = '/?view=dashboard'
+      } else {
+        // Registration succeeded but auto-login failed
+        onSwitchToLogin()
+      }
+    } catch (err) {
+      console.error('Registration error:', err)
+      setError('An unexpected error occurred. Please try again.')
     } finally {
       setIsLoading(false)
     }
