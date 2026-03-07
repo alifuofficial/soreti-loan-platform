@@ -2,6 +2,7 @@
 
 import { useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
+import { useSession } from 'next-auth/react'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -41,6 +42,7 @@ interface ProfileManagementProps {
 
 export function ProfileManagement({ user }: ProfileManagementProps) {
   const router = useRouter()
+  const { update: updateSession } = useSession()
   const fileInputRef = useRef<HTMLInputElement>(null)
   
   // Profile picture state
@@ -100,6 +102,8 @@ export function ProfileManagement({ user }: ProfileManagementProps) {
       if (response.ok) {
         setProfileImage(data.imageUrl)
         setImageSuccess('Profile picture updated successfully!')
+        // Update session to refresh the image in header
+        await updateSession()
         router.refresh()
       } else {
         setImageError(data.error || 'Failed to upload image')
@@ -125,6 +129,8 @@ export function ProfileManagement({ user }: ProfileManagementProps) {
       if (response.ok) {
         setProfileImage(null)
         setImageSuccess('Profile picture removed successfully!')
+        // Update session to refresh the image in header
+        await updateSession()
         router.refresh()
       } else {
         const data = await response.json()

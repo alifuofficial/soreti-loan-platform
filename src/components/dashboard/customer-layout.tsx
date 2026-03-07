@@ -4,7 +4,7 @@ import { useState, ReactNode } from 'react'
 import { useRouter } from 'next/navigation'
 import { signOut } from 'next-auth/react'
 import { Button } from '@/components/ui/button'
-import { Avatar, AvatarFallback } from '@/components/ui/avatar'
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Badge } from '@/components/ui/badge'
@@ -42,6 +42,7 @@ interface CustomerLayoutProps {
     fullName: string
     email: string
     role: string
+    image?: string | null
   }
 }
 
@@ -334,6 +335,7 @@ export function CustomerLayout({ children, user }: CustomerLayoutProps) {
               <div className="flex items-center gap-3">
                 <div className="relative">
                   <Avatar className="h-10 w-10 border-2 border-emerald-500/30">
+                    <AvatarImage src={user.image || undefined} alt={user.fullName} />
                     <AvatarFallback className="bg-gradient-to-br from-emerald-400 to-teal-500 text-white text-sm font-medium">
                       {userInitials}
                     </AvatarFallback>
@@ -356,6 +358,7 @@ export function CustomerLayout({ children, user }: CustomerLayoutProps) {
             ) : (
               <div className="flex flex-col items-center gap-2">
                 <Avatar className="h-10 w-10 border-2 border-emerald-500/30">
+                  <AvatarImage src={user.image || undefined} alt={user.fullName} />
                   <AvatarFallback className="bg-gradient-to-br from-emerald-400 to-teal-500 text-white text-sm font-medium">
                     {userInitials}
                   </AvatarFallback>
@@ -415,6 +418,7 @@ export function CustomerLayout({ children, user }: CustomerLayoutProps) {
               <div className="border-t border-white/10 p-4">
                 <div className="flex items-center gap-3 mb-3">
                   <Avatar className="h-10 w-10 border-2 border-emerald-500/30">
+                    <AvatarImage src={user.image || undefined} alt={user.fullName} />
                     <AvatarFallback className="bg-gradient-to-br from-emerald-400 to-teal-500 text-white text-sm">
                       {userInitials}
                     </AvatarFallback>
@@ -453,6 +457,7 @@ export function CustomerLayout({ children, user }: CustomerLayoutProps) {
             </span>
           </Button>
           <Avatar className="h-8 w-8 border-2 border-emerald-500/30">
+            <AvatarImage src={user.image || undefined} alt={user.fullName} />
             <AvatarFallback className="bg-gradient-to-br from-emerald-400 to-teal-500 text-white text-sm">
               {userInitials}
             </AvatarFallback>
@@ -507,6 +512,7 @@ export function CustomerLayout({ children, user }: CustomerLayoutProps) {
                 <p className="text-xs text-gray-500 capitalize">{user.role.toLowerCase()}</p>
               </div>
               <Avatar className="h-9 w-9 border-2 border-emerald-500/30">
+                <AvatarImage src={user.image || undefined} alt={user.fullName} />
                 <AvatarFallback className="bg-gradient-to-br from-emerald-400 to-teal-500 text-white text-sm">
                   {userInitials}
                 </AvatarFallback>

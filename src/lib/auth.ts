@@ -378,7 +378,8 @@ export async function getAuthOptions(): Promise<NextAuthOptions> {
 
         return true;
       },
-      async jwt({ token, user, account }) {
+      async jwt({ token, user, account, trigger, session }) {
+        // On initial sign in, set all user data
         if (user) {
           token.id = user.id;
           token.email = user.email;
@@ -389,6 +390,35 @@ export async function getAuthOptions(): Promise<NextAuthOptions> {
           token.image = user.image;
           token.authProvider = user.authProvider;
         }
+        
+        // On session update (triggered by update method), refresh user data from DB
+        if (trigger === "update" && token.id) {
+          const dbUser = await db.user.findUnique({
+            where: { id: token.id },
+            select: {
+              id: true,
+              email: true,
+              fullName: true,
+              role: true,
+              bankId: true,
+              phone: true,
+              image: true,
+              authProvider: true,
+            },
+          });
+          
+          if (dbUser) {
+            token.id = dbUser.id;
+            token.email = dbUser.email;
+            token.fullName = dbUser.fullName;
+            token.role = dbUser.role;
+            token.bankId = dbUser.bankId;
+            token.phone = dbUser.phone;
+            token.image = dbUser.image;
+            token.authProvider = dbUser.authProvider;
+          }
+        }
+        
         return token;
       },
       async session({ session, token }) {
@@ -485,7 +515,8 @@ export const authOptions: NextAuthOptions = {
     error: "/",
   },
   callbacks: {
-    async jwt({ token, user }) {
+    async jwt({ token, user, trigger, session }) {
+      // On initial sign in, set all user data
       if (user) {
         token.id = user.id;
         token.email = user.email;
@@ -496,6 +527,35 @@ export const authOptions: NextAuthOptions = {
         token.image = user.image;
         token.authProvider = user.authProvider;
       }
+      
+      // On session update, refresh user data from DB
+      if (trigger === "update" && token.id) {
+        const dbUser = await db.user.findUnique({
+          where: { id: token.id },
+          select: {
+            id: true,
+            email: true,
+            fullName: true,
+            role: true,
+            bankId: true,
+            phone: true,
+            image: true,
+            authProvider: true,
+          },
+        });
+        
+        if (dbUser) {
+          token.id = dbUser.id;
+          token.email = dbUser.email;
+          token.fullName = dbUser.fullName;
+          token.role = dbUser.role;
+          token.bankId = dbUser.bankId;
+          token.phone = dbUser.phone;
+          token.image = dbUser.image;
+          token.authProvider = dbUser.authProvider;
+        }
+      }
+      
       return token;
     },
     async session({ session, token }) {

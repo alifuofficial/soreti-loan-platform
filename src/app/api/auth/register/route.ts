@@ -25,6 +25,22 @@ const registerSchema = z.object({
   utm_content: z.string().optional(),
 });
 
+// Helper to format password validation errors
+function formatPasswordErrors(errors: Record<string, string[]>): string {
+  const passwordErrors = errors.password || [];
+  if (passwordErrors.length > 0) {
+    const requirements: string[] = [];
+    passwordErrors.forEach(err => {
+      if (err.includes('8 characters')) requirements.push('at least 8 characters');
+      if (err.includes('uppercase')) requirements.push('one uppercase letter (A-Z)');
+      if (err.includes('lowercase')) requirements.push('one lowercase letter (a-z)');
+      if (err.includes('number')) requirements.push('one number (0-9)');
+    });
+    return `Weak password. Please include: ${requirements.join(', ')}. Change your password and try again.`;
+  }
+  return Object.values(errors).flat().join('. ');
+}
+
 export async function POST(request: NextRequest) {
   try {
     // Rate limiting - 5 requests per 15 minutes per IP
@@ -55,11 +71,13 @@ export async function POST(request: NextRequest) {
     // Validate input
     const validationResult = registerSchema.safeParse(body);
     if (!validationResult.success) {
+      const fieldErrors = validationResult.error.flatten().fieldErrors as Record<string, string[]>;
+      const formattedError = formatPasswordErrors(fieldErrors);
       return NextResponse.json(
         {
           success: false,
-          error: "Validation failed",
-          details: validationResult.error.flatten().fieldErrors,
+          error: formattedError,
+          details: fieldErrors,
         },
         { status: 400 }
       );

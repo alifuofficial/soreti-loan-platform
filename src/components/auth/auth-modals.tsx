@@ -172,21 +172,22 @@ export function AuthModals({
           setError('Please enter a valid email address')
           return false
         }
+        // Check all password requirements and show comprehensive message
+        const passwordErrors: string[] = []
         if (registerData.password.length < 8) {
-          setError('Password must be at least 8 characters')
-          return false
+          passwordErrors.push('at least 8 characters')
         }
-        // Match backend password requirements
         if (!/[A-Z]/.test(registerData.password)) {
-          setError('Password must contain at least one uppercase letter')
-          return false
+          passwordErrors.push('one uppercase letter (A-Z)')
         }
         if (!/[a-z]/.test(registerData.password)) {
-          setError('Password must contain at least one lowercase letter')
-          return false
+          passwordErrors.push('one lowercase letter (a-z)')
         }
         if (!/[0-9]/.test(registerData.password)) {
-          setError('Password must contain at least one number')
+          passwordErrors.push('one number (0-9)')
+        }
+        if (passwordErrors.length > 0) {
+          setError(`Weak password. Please include: ${passwordErrors.join(', ')}`)
           return false
         }
         if (registerData.password !== registerData.confirmPassword) {
