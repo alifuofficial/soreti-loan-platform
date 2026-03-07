@@ -348,10 +348,18 @@ function BankSelection({ banks, form }: { banks: Bank[], form: any }) {
           >
             <CardContent className="pt-4 pb-4">
               <div className="flex items-start gap-4">
-                <div className="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center flex-shrink-0">
-                  <span className="text-primary font-bold">
-                    {bank.code.substring(0, 2)}
-                  </span>
+                <div className="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center flex-shrink-0 overflow-hidden">
+                  {bank.logoUrl ? (
+                    <img 
+                      src={bank.logoUrl} 
+                      alt={bank.name}
+                      className="w-full h-full object-contain bg-white"
+                    />
+                  ) : (
+                    <span className="text-primary font-bold">
+                      {bank.code.substring(0, 2)}
+                    </span>
+                  )}
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">

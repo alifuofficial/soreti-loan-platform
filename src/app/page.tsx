@@ -1198,73 +1198,115 @@ function MainPageContent() {
             
             {/* Scrolling Container */}
             <div className="flex gap-6 animate-scroll-carousel py-4">
-              {/* Duplicate the banks for seamless loop */}
-              {[...partnerBanks, ...partnerBanks, ...partnerBanks].map((bank, index) => (
-                <div
-                  key={`${bank.name}-${index}`}
-                  className="flex-shrink-0 w-72 group"
-                >
-                  <div className="relative bg-white rounded-2xl p-6 border border-gray-100 hover:border-gray-200 hover:shadow-xl transition-all duration-300 h-full">
-                    {/* Status Badge */}
-                    <div className="absolute top-4 right-4">
-                      {bank.status === 'coming_soon' ? (
-                        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-amber-50 text-amber-700 border border-amber-200">
-                          <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse"></span>
-                          Coming Soon
-                        </span>
-                      ) : bank.featured ? (
-                        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-primary/10 text-primary border border-primary/20">
-                          <Star className="w-3 h-3 fill-primary" />
-                          Featured
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-green-50 text-green-700 border border-green-200">
-                          <span className="w-1.5 h-1.5 rounded-full bg-green-500"></span>
-                          Available
-                        </span>
-                      )}
-                    </div>
-
-                    {/* Bank Logo/Initials */}
-                    <div className="flex items-start gap-4 mb-4">
-                      <div
-                        className="w-14 h-14 rounded-xl flex items-center justify-center text-white font-bold text-lg shadow-lg"
-                        style={{ 
-                          background: `linear-gradient(135deg, ${bank.color}, ${bank.color}dd)`,
-                          boxShadow: `0 8px 24px -8px ${bank.color}40`
-                        }}
-                      >
-                        {bank.initials}
-                      </div>
-                      <div className="flex-1 pt-1">
-                        <h3 className="font-semibold text-gray-900 group-hover:text-primary transition-colors">
-                          {bank.name}
-                        </h3>
-                        <p className="text-sm text-gray-500 mt-0.5">{bank.tagline}</p>
+              {/* Use dynamic banks or fallback to static if loading */}
+              {((banks.length > 0 ? banks : partnerBanks) || partnerBanks).length === 0 ? (
+                // Loading skeleton
+                [...Array(6)].map((_, index) => (
+                  <div key={`skeleton-${index}`} className="flex-shrink-0 w-72">
+                    <div className="bg-white rounded-2xl p-6 border border-gray-100 h-40 animate-pulse">
+                      <div className="flex items-start gap-4">
+                        <div className="w-14 h-14 rounded-xl bg-gray-200"></div>
+                        <div className="flex-1 pt-1">
+                          <div className="h-5 w-32 bg-gray-200 rounded mb-2"></div>
+                          <div className="h-3 w-24 bg-gray-200 rounded"></div>
+                        </div>
                       </div>
                     </div>
-
-                    {/* Quick Stats */}
-                    <div className="grid grid-cols-3 gap-2 pt-4 border-t border-gray-100">
-                      <div className="text-center">
-                        <div className="text-sm font-semibold text-gray-900">12%</div>
-                        <div className="text-[10px] text-gray-500">Rate</div>
-                      </div>
-                      <div className="text-center border-x border-gray-100">
-                        <div className="text-sm font-semibold text-gray-900">36 mo</div>
-                        <div className="text-[10px] text-gray-500">Max Term</div>
-                      </div>
-                      <div className="text-center">
-                        <div className="text-sm font-semibold text-gray-900">$1M</div>
-                        <div className="text-[10px] text-gray-500">Max Loan</div>
-                      </div>
-                    </div>
-
-                    {/* Hover Overlay */}
-                    <div className="absolute inset-0 rounded-2xl bg-gradient-to-t from-primary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none"></div>
                   </div>
-                </div>
-              ))}
+                ))
+              ) : (
+                // Duplicate for seamless loop
+                [...(banks.length > 0 ? banks : partnerBanks), ...(banks.length > 0 ? banks : partnerBanks), ...(banks.length > 0 ? banks : partnerBanks)].map((bank, index) => {
+                  const dynamicBank = bank as any
+                  const logoUrl = dynamicBank.logoUrl
+                  const initials = dynamicBank.code?.substring(0, 2) || dynamicBank.initials || 'BK'
+                  const color = dynamicBank.color || '#059669'
+                  const tagline = dynamicBank.tagline || dynamicBank.description || 'Partner Bank'
+                  const status = dynamicBank.status || (dynamicBank.isActive ? 'available' : 'coming_soon')
+                  const featured = dynamicBank.featured || dynamicBank.isPartner
+                  
+                  return (
+                    <div
+                      key={`${bank.id || bank.name}-${index}`}
+                      className="flex-shrink-0 w-72 group"
+                    >
+                      <div className="relative bg-white rounded-2xl p-6 border border-gray-100 hover:border-gray-200 hover:shadow-xl transition-all duration-300 h-full">
+                        {/* Status Badge */}
+                        <div className="absolute top-4 right-4">
+                          {status === 'coming_soon' ? (
+                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-amber-50 text-amber-700 border border-amber-200">
+                              <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse"></span>
+                              Coming Soon
+                            </span>
+                          ) : featured ? (
+                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-primary/10 text-primary border border-primary/20">
+                              <Star className="w-3 h-3 fill-primary" />
+                              Featured
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-green-50 text-green-700 border border-green-200">
+                              <span className="w-1.5 h-1.5 rounded-full bg-green-500"></span>
+                              Available
+                            </span>
+                          )}
+                        </div>
+
+                        {/* Bank Logo/Initials */}
+                        <div className="flex items-start gap-4 mb-4">
+                          <div
+                            className="w-14 h-14 rounded-xl flex items-center justify-center text-white font-bold text-lg shadow-lg overflow-hidden"
+                            style={{ 
+                              background: logoUrl ? 'white' : `linear-gradient(135deg, ${color}, ${color}dd)`,
+                              boxShadow: logoUrl ? '0 4px 12px -4px rgba(0,0,0,0.1)' : `0 8px 24px -8px ${color}40`
+                            }}
+                          >
+                            {logoUrl ? (
+                              <img 
+                                src={logoUrl} 
+                                alt={bank.name}
+                                className="w-full h-full object-contain p-2"
+                              />
+                            ) : (
+                              initials
+                            )}
+                          </div>
+                          <div className="flex-1 pt-1">
+                            <h3 className="font-semibold text-gray-900 group-hover:text-primary transition-colors">
+                              {bank.name}
+                            </h3>
+                            <p className="text-sm text-gray-500 mt-0.5">{tagline}</p>
+                          </div>
+                        </div>
+
+                        {/* Quick Stats */}
+                        <div className="grid grid-cols-3 gap-2 pt-4 border-t border-gray-100">
+                          <div className="text-center">
+                            <div className="text-sm font-semibold text-gray-900">
+                              {dynamicBank.interestRate || 12}%
+                            </div>
+                            <div className="text-[10px] text-gray-500">Rate</div>
+                          </div>
+                          <div className="text-center border-x border-gray-100">
+                            <div className="text-sm font-semibold text-gray-900">
+                              {dynamicBank.maxTermMonths || 36} mo
+                            </div>
+                            <div className="text-[10px] text-gray-500">Max Term</div>
+                          </div>
+                          <div className="text-center">
+                            <div className="text-sm font-semibold text-gray-900">
+                              {dynamicBank.maxLoanAmount ? `${(dynamicBank.maxLoanAmount / 1000000).toFixed(1)}M` : '$1M'}
+                            </div>
+                            <div className="text-[10px] text-gray-500">Max Loan</div>
+                          </div>
+                        </div>
+
+                        {/* Hover Overlay */}
+                        <div className="absolute inset-0 rounded-2xl bg-gradient-to-t from-primary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none"></div>
+                      </div>
+                    </div>
+                  )
+                })
+              )}
             </div>
           </div>
 
