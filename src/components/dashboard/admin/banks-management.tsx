@@ -85,8 +85,9 @@ export function BanksManagement() {
     try {
       const response = await fetch('/api/banks')
       if (response.ok) {
-        const data = await response.json()
-        const banksArray = data.banks || data || []
+        const result = await response.json()
+        // API returns { success: true, data: banks }
+        const banksArray = result.data || result.banks || result || []
         setBanks(Array.isArray(banksArray) ? banksArray : [])
       }
     } catch (error) {
@@ -122,14 +123,17 @@ export function BanksManagement() {
         })
       })
       
-      const data = await response.json()
+      const result = await response.json()
       
       if (response.ok) {
+        // API returns { success: true, data: bank }
+        const bank = result.data || result
+        console.log('Bank created:', bank)
         fetchBanks()
         setShowAddDialog(false)
         resetForm()
       } else {
-        alert(data.error || 'Failed to add bank')
+        alert(result.error || 'Failed to add bank')
       }
     } catch (error) {
       console.error('Failed to add bank:', error)
