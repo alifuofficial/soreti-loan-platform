@@ -72,6 +72,8 @@ export function ProfileManagement({ user }: ProfileManagementProps) {
     const file = e.target.files?.[0]
     if (!file) return
 
+    console.log('[Profile Upload] File selected:', file.name, file.type, file.size)
+
     // Validate file type
     if (!file.type.startsWith('image/')) {
       setImageError('Please select a valid image file')
@@ -92,12 +94,15 @@ export function ProfileManagement({ user }: ProfileManagementProps) {
       const formData = new FormData()
       formData.append('file', file)
 
+      console.log('[Profile Upload] Sending request to /api/user/profile-image')
       const response = await fetch('/api/user/profile-image', {
         method: 'POST',
         body: formData
       })
 
+      console.log('[Profile Upload] Response status:', response.status)
       const data = await response.json()
+      console.log('[Profile Upload] Response data:', data)
 
       if (response.ok) {
         setProfileImage(data.imageUrl)
@@ -109,6 +114,7 @@ export function ProfileManagement({ user }: ProfileManagementProps) {
         setImageError(data.error || 'Failed to upload image')
       }
     } catch (error) {
+      console.error('[Profile Upload] Error:', error)
       setImageError('Failed to upload image. Please try again.')
     } finally {
       setIsUploadingImage(false)

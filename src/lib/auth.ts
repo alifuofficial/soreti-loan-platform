@@ -1,4 +1,5 @@
 import type { NextAuthOptions } from "next-auth";
+import { getServerSession } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 import GoogleProvider from "next-auth/providers/google";
 import FacebookProvider from "next-auth/providers/facebook";
@@ -606,4 +607,10 @@ export const roleHierarchy: Record<Role, number> = {
 // Check if user role is at least a certain level
 export function hasRoleLevel(userRole: Role, minimumRole: Role): boolean {
   return roleHierarchy[userRole] >= roleHierarchy[minimumRole];
+}
+
+// Auth function for API routes and server components
+export async function auth() {
+  const session = await getServerSession(authOptions);
+  return session;
 }

@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
+import { auth } from '@/lib/auth'
 import { db } from '@/lib/db'
 import { writeFile, mkdir, unlink } from 'fs/promises'
 import { existsSync } from 'fs'
@@ -9,7 +8,10 @@ import path from 'path'
 // POST - Upload profile image
 export async function POST(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions)
+    console.log('[Profile Image] Starting upload...')
+    
+    const session = await auth()
+    console.log('[Profile Image] Session:', session?.user?.id ? 'Found' : 'Not found')
     
     if (!session?.user?.id) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -17,6 +19,7 @@ export async function POST(request: NextRequest) {
 
     const formData = await request.formData()
     const file = formData.get('file') as File | null
+    console.log('[Profile Image] File received:', file ? `${file.name} (${file.size} bytes)` : 'No file')
 
     if (!file) {
       return NextResponse.json({ error: 'No file provided' }, { status: 400 })
@@ -34,19 +37,35 @@ export async function POST(request: NextRequest) {
 
     // Create uploads directory if it doesn't exist
     const uploadsDir = path.join(process.cwd(), 'public', 'uploads', 'profiles')
-    if (!existsSync(uploadsDir)) {
-      await mkdir(uploadsDir, { recursive: true })
+    console.log('[Profile Image] Uploads directory:', uploadsDir)
+    
+    try {
+      if (!existsSync(uploadsDir)) {
+        await mkdir(uploadsDir, { recursive: true })
+        console.log('[Profile Image] Created directory')
+      }
+    } catch (mkdirError) {
+      console.error('[Profile Image] Error creating directory:', mkdirError)
+      return NextResponse.json({ error: 'Failed to create upload directory' }, { status: 500 })
     }
 
     // Generate unique filename
     const fileExtension = file.name.split('.').pop() || 'jpg'
     const fileName = `${session.user.id}-${Date.now()}.${fileExtension}`
     const filePath = path.join(uploadsDir, fileName)
+    console.log('[Profile Image] File path:', filePath)
 
     // Convert file to buffer and save
     const bytes = await file.arrayBuffer()
     const buffer = Buffer.from(bytes)
-    await writeFile(filePath, buffer)
+    
+    try {
+      await writeFile(filePath, buffer)
+      console.log('[Profile Image] File written successfully')
+    } catch (writeError) {
+      console.error('[Profile Image] Error writing file:', writeError)
+      return NextResponse.json({ error: 'Failed to save file' }, { status: 500 })
+    }
 
     // Generate public URL
     const imageUrl = `/uploads/profiles/${fileName}`
@@ -56,15 +75,16 @@ export async function POST(request: NextRequest) {
       where: { id: session.user.id },
       data: { image: imageUrl }
     })
+    console.log('[Profile Image] Database updated with URL:', imageUrl)
 
     return NextResponse.json({ 
       success: true,
       imageUrl 
     })
   } catch (error) {
-    console.error('Error uploading profile image:', error)
+    console.error('[Profile Image] Unexpected error:', error)
     return NextResponse.json(
-      { error: 'Failed to upload image' }, 
+      { error: 'Failed to upload image: ' + (error instanceof Error ? error.message : 'Unknown error') }, 
       { status: 500 }
     )
   }
@@ -73,7 +93,7 @@ export async function POST(request: NextRequest) {
 // DELETE - Remove profile image
 export async function DELETE(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions)
+    const session = await auth()
     
     if (!session?.user?.id) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
